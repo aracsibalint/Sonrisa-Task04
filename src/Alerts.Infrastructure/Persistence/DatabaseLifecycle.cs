@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Alerts.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
 using System.Data.Common;
 
 namespace Alerts.Infrastructure.Persistence;
@@ -20,6 +22,10 @@ public static class PersistenceRegistration
         services.AddSingleton(sp => new StorageAdmission(owner.DatabasePath, sp.GetRequiredService<IFreeSpaceProbe>()));
         services.AddScoped(sp => new AlertsDbContext(DatabaseLifecycle.Options(owner.DatabasePath)));
         services.AddScoped<PersistenceUnitOfWork>();
+        services.AddSingleton<IPasswordHasher<IdentityUser>, PasswordHasher<IdentityUser>>();
+        services.AddSingleton<IIdentityLogin, IdentityLoginService>();
+        services.AddSingleton<IIdentityProvisioningFault, NoIdentityProvisioningFault>();
+        services.AddSingleton<IdentityProvisioner>();
         return services;
     }
 }
@@ -47,8 +53,11 @@ public sealed class PersistenceUnitOfWork(AlertsDbContext context, WindowsDataba
             await DatabaseLifecycle.CheckpointAsync(owner, storage, purpose, cancellationToken).ConfigureAwait(false);
             return result;
         }
-        catch (SqliteException e) when (e.SqliteErrorCode != 19)
-        { storage.MarkFaulted(); throw; }
+        catch (StorageUnavailableException) { throw; }
+        catch (SqliteException e) when (SqliteStorageFailures.IsStorageAvailability(e))
+        { storage.MarkFaulted(); throw new StorageUnavailableException(); }
+        catch (DbUpdateException e) when (e.InnerException is SqliteException sqlite && SqliteStorageFailures.IsStorageAvailability(sqlite))
+        { storage.MarkFaulted(); throw new StorageUnavailableException(); }
         // Disposal rolls back on cancellation or any exception; do not reuse this scope after failure.
     }
 }

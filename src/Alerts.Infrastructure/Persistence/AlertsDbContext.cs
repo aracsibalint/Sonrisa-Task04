@@ -50,7 +50,8 @@ public sealed class AlertsDbContext(DbContextOptions<AlertsDbContext> options) :
                 ValidateEmergencyIntentTransition(entry);
             if (entry.State is EntityState.Added or EntityState.Modified && entry.Entity is NotificationIntentRow intent)
                 FilterSnapshot.Validate(intent.Category, intent.FilterSnapshotJson);
-            if (entry.State == EntityState.Deleted)
+            if (entry.State == EntityState.Deleted
+                && (purpose != MutationPurpose.IdentityProvisioning || entry.Entity is not IdentityUserRole<string>))
                 throw new InvalidOperationException("Physical deletion is not supported.");
             if (entry.State != EntityState.Modified) continue;
             if (entry.Entity is EventRow or SeenSourceItemRow)
@@ -162,8 +163,8 @@ public sealed class AlertsDbContext(DbContextOptions<AlertsDbContext> options) :
             }
             return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException e) when (e.SqliteErrorCode != 19) { storage!.MarkFaulted(); throw; }
-        catch (DbUpdateException e) when (e.InnerException is Microsoft.Data.Sqlite.SqliteException sqlite && sqlite.SqliteErrorCode != 19)
+        catch (Microsoft.Data.Sqlite.SqliteException e) when (SqliteStorageFailures.IsStorageAvailability(e)) { storage!.MarkFaulted(); throw; }
+        catch (DbUpdateException e) when (e.InnerException is Microsoft.Data.Sqlite.SqliteException sqlite && SqliteStorageFailures.IsStorageAvailability(sqlite))
         { storage!.MarkFaulted(); throw; }
     }
 }

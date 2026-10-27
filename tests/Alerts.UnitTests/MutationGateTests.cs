@@ -77,6 +77,8 @@ public sealed class MutationGateTests
     [Theory]
     [InlineData(MutationPurpose.Normal, 1090519040L, true)]
     [InlineData(MutationPurpose.Normal, 1090519039L, false)]
+    [InlineData(MutationPurpose.IdentityProvisioning, 1090519040L, true)]
+    [InlineData(MutationPurpose.IdentityProvisioning, 1090519039L, false)]
     [InlineData(MutationPurpose.SendResultOrRecovery, 269484032L, true)]
     [InlineData(MutationPurpose.IdentitySecurityBookkeeping, 269484031L, false)]
     public void StoragePolicy_UsesExactAllowanceAndThreshold(MutationPurpose purpose, long free, bool allowed)

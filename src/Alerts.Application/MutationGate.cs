@@ -1,6 +1,6 @@
 namespace Alerts.Application;
 
-public enum MutationPurpose { Normal, SendResultOrRecovery, IdentitySecurityBookkeeping }
+public enum MutationPurpose { Normal, SendResultOrRecovery, IdentitySecurityBookkeeping, IdentityProvisioning }
 
 // A capability passed by the outer use case, never acquired by a scoped participant.
 public sealed class MutationAdmission

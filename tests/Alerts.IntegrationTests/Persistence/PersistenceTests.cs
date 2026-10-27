@@ -12,6 +12,34 @@ namespace Alerts.IntegrationTests.Persistence;
 public sealed class PersistenceTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task UnitOfWork_SchemaAndConstraintErrors_AreNotStorage503OrLatched()
+    {
+        await using var db = await Sandbox.CreateAsync();
+        var schemaError = await Assert.ThrowsAsync<SqliteException>(() => db.WriteAsync(async (c, ct) =>
+        {
+            await c.Database.ExecuteSqlRawAsync("SELECT * FROM TableThatDoesNotExist;", ct);
+            return true;
+        }));
+        Assert.Equal(1, schemaError.SqliteErrorCode & 0xff);
+        Assert.False(db.Storage.IsFaulted);
+
+        var constraint = await Assert.ThrowsAsync<DbUpdateException>(() => db.WriteAsync((c, _) =>
+        {
+            c.Roles.Add(new IdentityRole
+            {
+                Id = "00000000-0000-0000-0000-000000000001",
+                Name = "Duplicate",
+                NormalizedName = "DUPLICATE",
+                ConcurrencyStamp = "duplicate"
+            });
+            return Task.FromResult(true);
+        }));
+        var constraintSqlite = Assert.IsType<SqliteException>(constraint.InnerException);
+        Assert.Equal(19, constraintSqlite.SqliteErrorCode & 0xff);
+        Assert.False(db.Storage.IsFaulted);
+    }
     [Fact]
     public async Task Migrations_ReapplyReopen_RealConstraintsAndIdentityRelationships()
     {
@@ -367,6 +395,12 @@ public sealed class PersistenceTests
         var info = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         info.ArgumentList.Add(typeof(Program).Assembly.Location);
         info.ArgumentList.Add("--Persistence:DatabasePath"); info.ArgumentList.Add(db.Path);
+        info.ArgumentList.Add("--DataProtection:KeyDirectory"); info.ArgumentList.Add(Path.Combine(Path.GetDirectoryName(db.Path)!, "keys"));
+        info.ArgumentList.Add("--DataProtection:ApplicationName"); info.ArgumentList.Add("Alerts.Persistence.OwnerProbe");
+        info.ArgumentList.Add("--Identity:Provisioning:Accounts:0:Id"); info.ArgumentList.Add("00000000-0000-0000-0000-000000000199");
+        info.ArgumentList.Add("--Identity:Provisioning:Accounts:0:Email"); info.ArgumentList.Add("owner-probe@example.test");
+        info.ArgumentList.Add("--Identity:Provisioning:Accounts:0:Password"); info.ArgumentList.Add("Synthetic-Owner-42!Probe");
+        info.ArgumentList.Add("--Identity:Provisioning:Accounts:0:Role"); info.ArgumentList.Add("Admin");
         info.ArgumentList.Add("--urls"); info.ArgumentList.Add("http://127.0.0.1:0");
         using (var child = Process.Start(info)!)
         {

@@ -1,6 +1,6 @@
 # SQLite local sandbox operations (BE-003)
 
-Status: implemented; independent review pending. Canonical requirements remain [schema](data-model-and-evolution.md), [security](../architecture/security.md) and active ADR-001/002/003/004/006. [Evidence](../process/build/BE-003.md) distinguishes actual disposable tests from future operations.
+Status: BE-003 persistence and BE-004 identity foundation implemented; independent BE-004 review pending. Canonical requirements remain [schema](data-model-and-evolution.md), [security](../architecture/security.md) and active ADR-001/002/003/004/006. [Evidence](../process/build/BE-004.md) distinguishes actual disposable tests from future operations.
 
 ## Supported envelope and ownership
 
@@ -33,10 +33,21 @@ The command checks normal disk headroom before creating the empty file, acquires
 
 ```powershell
 $env:Persistence__DatabasePath = 'C:\sandbox\alerts.db'
+$env:DataProtection__KeyDirectory = 'C:\sandbox-keys\alerts'
+$env:DataProtection__ApplicationName = 'Alerts.LocalSandbox'
+$env:Identity__Provisioning__Accounts__0__Id = '<stable-lowercase-guid>'
+$env:Identity__Provisioning__Accounts__0__Email = '<synthetic-user-email>'
+$env:Identity__Provisioning__Accounts__0__Password = '<unique-synthetic-password-from-approved-secret-input>'
+$env:Identity__Provisioning__Accounts__0__Role = 'User'
+# Configure a separate indexed Admin account; placeholders are not literal values.
 dotnet run --project src/Alerts.Api -c Release --no-build
 ```
 
-Startup with a configured path requires the existing file and exact known migration history; it streams decimal/snapshot representations for validation and never migrates/creates the DB. Missing/incompatible configured storage fails startup. Without a configured path, liveness remains available but readiness is 503. Readiness checks owner validity and emergency disk floor/fault latch, not future auth/provisioning/worker readiness. No business/auth endpoints or workers are enabled by BE-003.
+Startup with a configured path requires the existing file and exact known migration history; it never migrates/creates the DB. It also requires a nonempty explicit account set containing at least one Admin and a persistent Data Protection key directory/application name. Keys are protected to the current Windows user with DPAPI and must be backed up separately; another account/machine may not decrypt them. Missing/empty/ambiguous configuration and persisted ID/email conflicts fail before account mutation. The configured set is authoritative: exact User/Admin membership is reconciled, absent accounts are disabled, and later re-adding the same stable identity re-enables its original stored password. Existing configured passwords are never reset from changed startup input; user/history/password rows are never deleted. Reconciliation is one normal-headroom admitted transaction and rolls back on failure. Already-issued tokens remain valid for at most15 minutes. Without a configured path, liveness remains available but readiness/login are503.
+
+Only `POST /api/v1/auth/login`, `GET /api/v1/me` and `GET /api/v1/me/channels` are mapped. There is no register/reset/refresh/logout/user-management route. Login is limited to10/minute/client IP with no queue; five failed checks lock the account for15 minutes. The access token expires after900 seconds. The framework response currently includes a refresh token field, but it is unsupported/discard-only. Never log or copy passwords, access/refresh values or DPAPI key XML into evidence.
+
+SQLite availability failures during login security bookkeeping return a fixed redacted503 and never issue a bearer. The exact latched primary categories are BUSY5, LOCKED6, READONLY8, IOERR10, FULL13 and CANTOPEN14; extended codes are reduced to their low-byte primary. ERROR1 schema/SQL, NOMEM7 process resource, CORRUPT11, CONSTRAINT19, MISUSE21 and NOTADB26 are deliberately not translated to transient `StorageUnavailable` or latched by this classifier; they remain safe500/domain/startup failures requiring diagnosis. Credential states alone use the generic401. A503 can follow an uncertain post-commit checkpoint; selected storage availability faults latch mutations/readiness unavailable for operator investigation rather than claiming rollback.
 
 ## Runtime writer foundation
 

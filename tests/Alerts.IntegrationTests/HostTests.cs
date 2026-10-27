@@ -41,7 +41,7 @@ public sealed class HostTests
     }
 
     [Fact]
-    public async Task Endpoints_DefaultHost_ExposesOnlyHealth_AndUnconfiguredPersistenceIsNotReady()
+    public async Task Endpoints_DefaultHost_ExposesOnlyApprovedIdentityFoundationAndHealth_AndIsNotReady()
     {
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
@@ -49,7 +49,8 @@ public sealed class HostTests
 
         var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints;
 
-        Assert.Equal(new[] { "/health/live", "/health/ready" }, endpoints.OfType<RouteEndpoint>().Select(e => e.RoutePattern.RawText).Order());
+        Assert.Equal(new[] { "/api/v1/auth/login", "/api/v1/me", "/api/v1/me/channels", "/health/live", "/health/ready" },
+            endpoints.OfType<RouteEndpoint>().Select(e => e.RoutePattern.RawText).Order());
         using var readiness = await client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, readiness.StatusCode);
     }

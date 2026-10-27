@@ -30,7 +30,8 @@ public sealed class StorageAdmission(string databasePath, IFreeSpaceProbe probe)
         try { bytes = probe.AvailableBytes(databasePath); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
         { MarkFaulted(); throw new StorageUnavailableException(); }
-        var required = purpose == MutationPurpose.Normal ? (1L << 30) + (16L << 20) : (256L << 20) + (1L << 20);
+        var emergency = purpose is MutationPurpose.SendResultOrRecovery or MutationPurpose.IdentitySecurityBookkeeping;
+        var required = !emergency ? (1L << 30) + (16L << 20) : (256L << 20) + (1L << 20);
         if (bytes < required) throw new StorageUnavailableException();
     }
 }
