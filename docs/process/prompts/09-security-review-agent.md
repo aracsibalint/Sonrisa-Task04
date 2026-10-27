@@ -1,0 +1,7 @@
+# Security review prompt
+
+```text
+Read-only design security review C:\Repos\Sonrisa-Task04. Load security-review and engineering-policy. Review completed docs/architecture/overview.md, processing-flows.md, adr/*.md, requirements/alerts-mvp.md, research/framework-checks.md and process/approval-register.md. API/schema/security companion docs being produced separately; do not treat their temporary absence as design defect yet and do not edit anything. Return standard report with evidence locations, blocking vs should-fix, scope limits. Focus on actual proposed login-only Identity opaque bearer with unused refresh field, no instant revocation, all-writer gate including Identity lockout and non-reentrant DI pitfalls, HMAC freshness/replay/body, config-owned URLs/secrets and snapshot version routing, external content SSRF/XXE/HTML/Slack mention injection, sandbox safe bind, PII, capacity/retention, process-level lock/cross-platform, honest retry guarantees. Distinguish user approval blockers from correctable design contradictions/underspecification; no invented vulnerabilities or runtime claims. Need concrete minimal fixes appropriate local MVP, not production expansion. Capture your exact received prompt in response header or appendix if possible. No code/files/estimates.
+```
+
+See `docs/validation/security-review.md` for actual findings when recorded. This prompt does not itself establish any review verdict.
