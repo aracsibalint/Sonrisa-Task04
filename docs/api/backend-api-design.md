@@ -1,6 +1,6 @@
 # Backend API design — v1
 
-Status: **Approved recovery-baseline build contract; runtime unverified, not an implemented API.** User acceptance covers the active six ADRs and Windows local sandbox. Provider choice/rights and nonlocal/production operation remain gated; see [approval register](../process/approval-register.md).
+Status: **Approved recovery-baseline build contract; authentication and owner rule lifecycle implemented, awaiting BE-005 review.** Remaining admin/event/delivery/source/webhook runtime surfaces are not implemented. User acceptance covers the active six ADRs and Windows local sandbox. Provider choice/rights and nonlocal/production operation remain gated; see [approval register](../process/approval-register.md).
 
 [Scope](../process/approved-scope.md) · [Model](../data/data-model-and-evolution.md) · [Security](../architecture/security.md) · [Flows](../architecture/processing-flows.md)
 

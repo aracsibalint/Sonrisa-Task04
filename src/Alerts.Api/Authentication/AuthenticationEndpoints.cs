@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Alerts.Application.Rules;
 
 namespace Alerts.Api.Authentication;
 
@@ -53,21 +54,11 @@ public static class AuthenticationEndpoints
             return Results.Ok(new { id, email, roles });
         }).RequireAuthorization("Owner");
 
-        app.MapGet("/api/v1/me/channels", async (ClaimsPrincipal principal, [FromServices] AlertsDbContext db, CancellationToken ct) =>
+        app.MapGet("/api/v1/me/channels", async (ClaimsPrincipal principal, [FromServices] RuleUseCases rules, CancellationToken ct) =>
         {
             var ownerId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var destinations = await db.Set<ChannelDestinationRow>().AsNoTracking()
-                .Where(x => x.OwnerId == ownerId)
-                .OrderByDescending(x => x.ConfigurationVersion)
-                .ToListAsync(ct).ConfigureAwait(false);
-            var channels = new[] { "Email", "Slack" }.Select(channel =>
-            {
-                var destination = destinations.FirstOrDefault(x => x.Channel == channel);
-                var available = destination?.IsAvailable == true && destination.RevokedAtUtcMs is null;
-                var reason = available ? null : destination is null ? "NotProvisioned"
-                    : destination.RevokedAtUtcMs is not null ? "Revoked" : "Disabled";
-                return new { channel = channel.ToLowerInvariant(), available, reason };
-            });
+            var available = await rules.ChannelsAsync(ownerId, ct).ConfigureAwait(false);
+            var channels = available.Select(x => new { channel = x.Channel.ToLowerInvariant(), x.Available, x.Reason });
             return Results.Ok(new { channels });
         }).RequireAuthorization("Owner");
     }

@@ -31,8 +31,8 @@ Every dependency below is a prerequisite for claiming completion; approval gates
 | [BE-001](tasks/BE-001.md) | Solution/tooling scaffold | User technical/dependency approval checkpoint | Verified; committed/pushed 25c9bb4 |
 | [BE-002](tasks/BE-002.md) | Domain validation and matching | BE-001 | Verified; committed/pushed 4702b21 |
 | [BE-003](tasks/BE-003.md) | Relational model/migrations | BE-001, BE-002 | Verified; committed/pushed 195cf24 |
-| [BE-004](tasks/BE-004.md) | Seeded identity/authorization | BE-003 | Verified after correction cycle 2 |
-| [BE-005](tasks/BE-005.md) | Owner rule APIs/provisioned channels | BE-002, BE-003, BE-004 | Not started (approval/dependency gated) |
+| [BE-004](tasks/BE-004.md) | Seeded identity/authorization | BE-003 | Verified; committed/pushed a4c798b |
+| [BE-005](tasks/BE-005.md) | Owner rule APIs/provisioned channels | BE-002, BE-003, BE-004 | Verified after correction cycle 2 |
 | [BE-006](tasks/BE-006.md) | Atomic event acceptance/manual admin input | BE-002, BE-003, BE-004, BE-005 | Not started (approval/dependency gated) |
 | [BE-007](tasks/BE-007.md) | Authenticated simulated earthquake webhook | BE-006 | Not started (approval/dependency gated) |
 | [BE-008](tasks/BE-008.md) | RSS and market adapters/polling | BE-006; provider gates for live operation/completion | Not started (approval/dependency gated) |

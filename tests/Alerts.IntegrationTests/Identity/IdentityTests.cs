@@ -121,7 +121,7 @@ public sealed class IdentityTests
             .Select(x => x.RoutePattern.RawText).ToArray();
         Assert.DoesNotContain(routes, x => x is not null && (x.Contains("register") || x.Contains("reset")
             || x.Contains("refresh") || x.Contains("logout") || x.Contains("manage")));
-        Assert.Equal(5, routes.Length);
+        Assert.Equal(10, routes.Length);
     }
 
     [Fact]

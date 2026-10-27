@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Alerts.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using System.Data.Common;
+using Alerts.Application.Rules;
 
 namespace Alerts.Infrastructure.Persistence;
 
@@ -26,6 +27,8 @@ public static class PersistenceRegistration
         services.AddSingleton<IIdentityLogin, IdentityLoginService>();
         services.AddSingleton<IIdentityProvisioningFault, NoIdentityProvisioningFault>();
         services.AddSingleton<IdentityProvisioner>();
+        services.AddSingleton<IRulePersistence, RulePersistence>();
+        services.AddSingleton<RuleUseCases>();
         return services;
     }
 }

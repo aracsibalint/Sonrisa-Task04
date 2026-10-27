@@ -3,6 +3,7 @@ using Alerts.Application;
 using Alerts.Infrastructure.Persistence;
 using Alerts.Infrastructure.Identity;
 using Alerts.Api.Authentication;
+using Alerts.Api.Rules;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -115,9 +116,21 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.Use(async (context, next) =>
 {
+    var supplied = context.Request.Headers["X-Correlation-Id"].ToString();
+    context.TraceIdentifier = Guid.TryParseExact(supplied, "D", out var correlation) && correlation != Guid.Empty
+        ? correlation.ToString("D") : Guid.NewGuid().ToString("D");
+    context.Response.Headers["X-Correlation-Id"] = context.TraceIdentifier;
     if (context.Request.Path.StartsWithSegments("/api/v1"))
         context.Response.Headers.CacheControl = "no-store";
     await next(context).ConfigureAwait(false);
+});
+app.Use(async (context, next) =>
+{
+    try { await next(context).ConfigureAwait(false); }
+    catch (ApiRequestException e) when (!context.Response.HasStarted)
+    {
+        await ApiProblems.Create(context, e.Status, e.Code).ExecuteAsync(context).ConfigureAwait(false);
+    }
 });
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -136,6 +149,7 @@ app.MapGet("/health/ready", () =>
     { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
 });
 app.MapAlertsIdentity(schemaReady);
+if (schemaReady) app.MapAlertsRules();
 app.Run();
 
 // Public entry point for WebApplicationFactory.
