@@ -1,6 +1,6 @@
 # Backend API design — v1
 
-Status: **Proposed — pending approval.** This is a build contract, not an implemented API. Level2 approval covers endpoints, authentication, status/validation behavior and DTOs.
+Status: **Approved recovery-baseline build contract; runtime unverified, not an implemented API.** User acceptance covers the active six ADRs and Windows local sandbox. Provider choice/rights and nonlocal/production operation remain gated; see [approval register](../process/approval-register.md).
 
 [Scope](../process/approved-scope.md) · [Model](../data/data-model-and-evolution.md) · [Security](../architecture/security.md) · [Flows](../architecture/processing-flows.md)
 
@@ -9,7 +9,7 @@ Status: **Proposed — pending approval.** This is a build contract, not an impl
 - Base path `/api/v1`; JSON UTF-8, lowerCamelCase properties, string enum values shown below, no EF entity serialization. Breaking changes require a new major route/version, not silent reinterpretation of v1. No GraphQL, UI or external registration.
 - GUID IDs are canonical lowercase D strings. Timestamps are UTC `YYYY-MM-DDTHH:mm:ss.fffZ`, exact millisecond precision, except HTTP authentication timestamp (Unix seconds). Decimal quantities are **JSON strings**, never JSON numbers or locale-formatted strings. Store canonical invariant decimal text; responses remove insignificant fractional zeroes. Input scale/range limits are in the model. Unknown properties, duplicate JSON property names, unknown enum values and properties belonging to another union case are rejected (`400`), not silently ignored.
 - JSON bodies <=65536 bytes (including login/webhook); Content-Type `application/json` only, no compressed request body, unsupported media/content-encoding `415`. Oversize `413` at server/proxy and application stream boundary even without Content-Length; avoid buffering beyond cap. Parsing/validation `400`; no automatic defaults for category filters. Malformed IDs/cursors/queries `400`, route not found `404`.
-- Normalized text: trim outer whitespace and NFC; keyword 1..100, name1..100, title1..500, summary optional1..4000, place optional1..200, producer externalId1..512 Unicode scalars and <=2048 UTF-8 bytes; reject controls in identifiers/name/title/destinations; allow ordinary newline in summary/place only after safe normalization. No user-supplied recipient/source URLs except optional news article navigation link; that link is never fetched.
+- Normalized text: trim outer whitespace and NFC; keyword1..100, name1..100, title1..500, summary optional1..4000, title+separator+summary <=16KiB UTF-8, place optional1..200, externalId1..512 Unicode scalars and <=2048 UTF-8 bytes; reject controls in identifiers/name/title/destinations; ordinary newline in summary/place only after safe normalization. Manual oversize is400, not truncation. No recipient/source URLs except inert optional news article link, never fetched.
 - Successful writes are returned only after commit. Client timeout/uncertain commit is not proof of failure; retry manual/webhook with the same externalId and normalized payload. Rule create has no idempotency guarantee; after an uncertain create, list owned rules before creating another.
 - Header `X-Correlation-Id` accepts a UUID or is replaced with a generated UUID, echoed on all responses. Response `Cache-Control: no-store` on authenticated APIs/auth/errors. No secret values in URLs or query parameters.
 
@@ -50,12 +50,12 @@ POST `/auth/login` request:
 {"email":"user@example.test","password":"<provisioned-password>"}
 ```
 
-Email <=256; password1..256 (do not trim/normalize password). Validate via ASP.NET Core Identity using built-in password hashing/opaque bearer issuance; no homemade token. Explicitly map only this route, **not MapIdentityApi**. Proposed30m access lifetime; no cookies and no refresh endpoint.
+Email <=256; password1..256 (no trimming/normalization). ASP.NET Core Identity built-in hashing/opaque bearer issuance only; explicitly map this route, **not MapIdentityApi**. Access lifetime15m; no cookies/refresh endpoint. Hash/verify outside admission/transaction; outer Application use case acquires singleton nonreentrant gate once and reloads relevant hash/stamps/lockout before sign-in. If changed, release for bounded re-verification outside admission then reload. All Identity writes, including failed counts/reset/rehash/provisioning, use internal admission context passed to scoped stores without reacquisition/capture. No credential success without required commit.
 
 Expected framework-shaped200 response (verify against pinned .NET10 during BE-004):
 
 ```json
-{"tokenType":"Bearer","accessToken":"<opaque-access-token>","expiresIn":1800,"refreshToken":"<framework-issued-but-unsupported-token>"}
+{"tokenType":"Bearer","accessToken":"<opaque-access-token>","expiresIn":900,"refreshToken":"<framework-issued-but-unsupported-token>"}
 ```
 
 Clients use `Authorization: Bearer <accessToken>` until expiry, then log in again. A framework refreshToken field is acknowledged for exact serializer compatibility, **not** an offered refresh feature; do not persist/use it in sample clients. If framework allows suppressing this field without custom token cryptography, changing the response requires an explicitly reviewed contract update. Invalid credentials, nonexistent/locked account -> identical401 `InvalidCredentials`; do not reveal existence or lockout details. Five failures trigger15m lockout; login rate10/min/IP, queue0. All Identity writes use shared gate, including counters/rehashes;503 if mutation cannot safely complete.
@@ -90,7 +90,7 @@ Create body, one of three exact filter shapes:
 {"name":"Sample quakes","category":"earthquake","filter":{"minimumMagnitude":"4.5","magnitudeScale":"Mw"},"channels":["slack"],"enabled":false}
 ```
 
-`channels` is1..2 distinct strings `email`/`slack`, both provisioned and available when selected. Required name/category/filter/channels/enabled; no owner or destination fields. Per-user20 and global200 undeleted rule cap; paused counts. Over quota409 `RuleLimitReached`; unavailable selected channel400 `ChannelUnavailable`. Numeric limits: threshold >0<=1000000 with<=8 decimals; magnitude -2..10 inclusive with<=2 decimals. Keyword ordinal ignore-case substring in normalized title+separator+summary; not regex/word stemming. Market absolute inclusive threshold per accepted slot, not crossing. Category fixed after create.
+`channels` is1..2 distinct strings `email`/`slack`, both provisioned/available when selected. Required name/category/filter/channels/enabled; no owner/destination fields. Active(enabled,undeleted) quota20/owner and100 global; paused rules do not count. Enforce creation/activation under gate; projected excess409 `RuleLimitReached`; unavailable channel400 `ChannelUnavailable`. Threshold >0<=1000000,<=8 decimals; magnitude -2..10,<=2 decimals. Keyword ordinal-ignore-case substring in normalized title+separator+summary; not regex/stemming. Market absolute inclusive per accepted slot, not crossing. Category immutable.
 
 RuleResponse (used for list/get/create/update):
 
@@ -110,7 +110,7 @@ Under gate compare expected version, apply change, increment to2 and return200/E
 
 DELETE requires `If-Match: "2"`, exactly one strong positive-integer ETag; missing428 `PreconditionRequired`; weak/multiple/*/malformed400; stale412. Soft-deletes, disables, increments version and returns204; repeated delete404. Ownership is checked before version to avoid data leakage. Rule creation/update/resume never rematches history; deletion/pause never cancels already committed delivery snapshots.
 
-**Reconciliation gate:** parallel processing-flows initially says last-committed edits without optimistic concurrency. Handoff explicitly requests version concurrency. This contract proposes version checks; architect must align before BE-005.
+Optimistic edit preconditions and ingestion commit ordering are complementary: only a successful edit changes rules, and the rule version committed before event acceptance is evaluated. Immutable intent snapshots are never rewritten by later edits.
 
 ## Manual events and webhook payloads
 
@@ -163,9 +163,9 @@ New input201 plus `Location: /api/v1/admin/events/{eventId}` for Admin callers o
 {"eventId":"20000000-0000-0000-0000-000000000001","duplicate":false,"acceptedAt":"2026-01-01T00:00:00.100Z","matchedRuleCount":1,"deliveryIntentCount":2}
 ```
 
-Webhook response omits `matchedRuleCount` and `deliveryIntentCount` to avoid cross-user activity disclosure; exact machine DTO is `{ "eventId": "20000000-0000-0000-0000-000000000001", "duplicate": false, "acceptedAt": "2026-01-01T00:00:00.100Z" }`. Replay returns original counts/time and duplicate=true. 201 means event/matches/intents committed, **not sent**; no202 because evaluation is synchronous. Same key duplicates are looked up before time-relative freshness revalidation of already accepted immutable content, so later legitimate retries remain idempotent; first validate schema/auth/canonicalization, then key equality. New events enforce current-time checks. Changed-body conflicts never replace the original.
+Webhook response omits `matchedRuleCount` and `deliveryIntentCount` to avoid cross-user disclosure; exact machine DTO is `{ "eventId": "20000000-0000-0000-0000-000000000001", "duplicate": false, "acceptedAt": "2026-01-01T00:00:00.100Z" }`. Replay returns original counts/time and duplicate=true. 201 means event and all intents committed, **not delivered**; matching is synchronous with no match table/no202. First validate schema/auth/canonicalization then key equality before relative freshness checks on already accepted content. New events enforce current-time checks. Changed-body conflicts never replace originals.
 
-All accepted inputs share one gated transaction: event, applicable seen entry, bounded active rule evaluation, positive matches and every selected intent. Gate5s timeout, SQLite busy/unavailable, backlog>10000 or unavailable referenced destination ->503 with safe code and `Retry-After: 5`; no partial event/identity commit. Arithmetic/schema invalidity400; DB uniqueness race re-reads canonical existing event, does not produce500 or rematch. Clients retry same key with bounded backoff; do not flood during backpressure. Pollers preserve their source identity and validators instead of inventing a new event.
+All accepted inputs share one transaction: event, applicable seen entry, bounded active-rule evaluation and every selected intent(max200). Direct Event/Rule/Owner/Destination edges; intents carry immutable RuleVersion, RuleNameSnapshot, Category, FilterSnapshotJson(max2048 validated), PredicateVersion and MatchedAtUtcMs. Unique(EventId,RuleId,Channel). Outer use case acquires gate once(max32 waiters,2s); SQLite busy1s. Projected Pending+InFlight+RetryScheduled>20,000 or retained all-status intents>250,000, writer/storage failure or unavailable target ->503 safe code/Retry-After:5; no partial commit. All mutations, including zero-match events/seen/rules/failure history, require measured disk admission: normal1GiB after16MiB allowance; emergency256MiB after1MiB only for bounded send-result/recovery and essential Identity security bookkeeping. No send without completion headroom. Below emergency/unmeasurable or DB write/checkpoint failure stops claims/sends/mutations/readiness503; no login credential/acceptance success without required commit. Bounded nonpersistent redacted diagnostics only, no auto deletion. Budgets unmeasured/not OS reservations; BE-003 tests WAL/headroom. Arithmetic/schema invalidity400; uniqueness race rereads existing canonical event, never rematches. Retry same key with bounded backoff; pollers preserve identity/validators.
 
 ## Pagination, filtering and inspection DTOs
 
@@ -185,7 +185,7 @@ Allowed query fields (in addition to pageSize/cursor); unknown fields400:
 | /admin/events | `category`, `sourceId`, `provenance=live|simulated|manual`, `acceptedFrom`, `acceptedTo` (UTC inclusive lower/exclusive upper) |
 | /admin/sources | `kind=rss|market|earthquakeWebhook|manual`, `enabled` |
 | /admin/sources/{id}/failures | `from`, `to` UTC half-open |
-| /admin/deliveries | `status=pending|inFlight|sent|failed`, `eventId`, `ruleId`, `ownerId`, `channel=email|slack`, `createdFrom`, `createdTo` |
+| /admin/deliveries | `status=pending|inFlight|delivered|retryScheduled|failed`, `eventId`, `ruleId`, `ownerId`, `channel=email|slack`, `createdFrom`, `createdTo` |
 | /admin/deliveries/{id}/attempts | none; still envelope |
 
 Malformed filter400; valid nonexistent filter ID yields empty list; nonexistent parent resource for nested route404. Validate from<to; no unbounded payload expansion or include parameter. Queries project AsNoTracking, page max100; combine composite indexes in model with measured query plans before adding new indexes. Decimal range/sort not offered.
@@ -214,7 +214,7 @@ SourceResponse used for both list/detail; all fields exact:
 {"id":"30000000-0000-0000-0000-000000000001","name":"binance-btcusdt","displayName":"Binance BTC/USDT","configurationVersion":1,"kind":"market","category":"market","provenance":"live","enabled":false,"health":"disabled","stale":false,"pollIntervalSeconds":60,"baselineCompletedAt":null,"lastAttemptAt":null,"lastFetchSucceededAt":null,"lastValidObservationAt":null,"nextPollAt":null,"consecutiveFailures":0,"consecutiveSchemaFailures":0,"lastErrorCode":null,"lastErrorSummary":null,"lastPollRejectedItems":0,"lastPollConflictingItems":0}
 ```
 
-Health values uninitialized/healthy/degraded/blocked/disabled; disabled/nonpolled stale=false, active market stale if no valid observation after5m from activation or last valid; RSS after3 scheduled intervals without successful fetch. Activation time must be defined by source initialization/config enable operation, not process restart. GET exposes no URL, ETag, Last-Modified, secret reference or headers. PollIntervalSeconds nullable for nonpolled kinds; baseline only RSS. Provider is conditional, disabled until approvals.
+Health values uninitialized/healthy/degraded/blocked/disabled; disabled/nonpolled stale=false, market stale after5m from last valid observation or activation; RSS after3 intervals from last successful fetch or activation. SourceState.ActivatedAtUtcMs is persisted at initialization/enable, never reset at restart. GET exposes no URL, ETag, Last-Modified, secret reference or headers. PollIntervalSeconds nullable for nonpolled kinds; baseline only RSS. NASA/Binance remain candidates, disabled pending choice/rights gates.
 
 SourceFailureResponse: `{id:GUID,sourceId:GUID,occurredAt:UTC,stage:"fetch"|"parse"|"normalize"|"accept"|"schedule",code:string,summary:string,httpStatus:int|null,rejectedItemCount:int}`; safe locally classified summary<=500, not upstream body. Example code `ResponseTooLarge`, stage `fetch`, status null, count0.
 
@@ -223,12 +223,12 @@ SourceFailureResponse: `{id:GUID,sourceId:GUID,occurredAt:UTC,stage:"fetch"|"par
 DeliveryListItem:
 
 ```json
-{"id":"40000000-0000-0000-0000-000000000001","eventId":"20000000-0000-0000-0000-000000000001","ruleId":"10000000-0000-0000-0000-000000000001","ownerId":"00000000-0000-0000-0000-000000000001","channel":"email","status":"pending","attemptCount":1,"createdAt":"2026-01-01T00:00:00.100Z","nextAttemptAt":"2026-01-01T00:00:11.000Z","sentAt":null,"failedAt":null,"lastErrorCode":"TransportTimeout"}
+{"id":"40000000-0000-0000-0000-000000000001","eventId":"20000000-0000-0000-0000-000000000001","ruleId":"10000000-0000-0000-0000-000000000001","ownerId":"00000000-0000-0000-0000-000000000001","channel":"email","status":"retryScheduled","attemptCount":1,"createdAt":"2026-01-01T00:00:00.100Z","nextAttemptAt":"2026-01-01T00:00:31.000Z","deliveredAt":null,"failedAt":null,"lastErrorCode":"TransportTimeout"}
 ```
 
-DeliveryDetail adds `ruleVersion:int`, `ruleNameSnapshot:string`, `filterSnapshot:category filter`, `predicateVersion:int`, `destinationConfigurationVersion:int`, `recipient:string` (literal `"[redacted]"` for both channels), `subject:string|null`, `body:string`, `lastErrorSummary:string|null`, `leaseExpiresAt:UTC|null`, `payloadSchemaVersion:int`. No secret reference/URL/claim token. Body excludes credential/recipient secret but contains admin-inspectable normalized event content; protect as sensitive. Rule deletion does not hide admin history. Pending includes scheduled retries; sent means receiver accepted, not human receipt. Four states are a pending architect reconciliation, not an implicit fifth retry status.
+DeliveryDetail adds `ruleVersion:int`, `ruleNameSnapshot:string`, `category:category`, `filterSnapshot:category filter`, `predicateVersion:int`, `matchedAt:UTC`, `destinationConfigurationVersion:int`, `recipient:string` (literal `"[redacted]"` for both), `subject:string|null`, `body:string`, `lastErrorSummary:string|null`, `leaseExpiresAt:UTC|null`, `payloadSchemaVersion:int`. No secret reference/URL/claim token or match identifier. Body is sensitive admin-inspectable normalized content. Rule deletion preserves history. Pending=count0,due; InFlight=count1..5,claim+lease; Delivered=count1..5,deliveredAt; RetryScheduled=count1..4,due; Failed=count1..5 or count0 only explicit PermanentProvisioningFailure before any claim/send, with no fabricated attempt. Delivered means receiver acceptance, not human receipt; Delivered/Failed terminal. One dispatcher/channel,10s I/O,2m lease,5 attempts. Retry after ordinal n30s*2^(n-1),0..10% nonnegative jitter, local cap30m; honor larger valid Retry-After with no24h cutoff. Restart waits unexpired prior lease and cancels/awaits local live operation before recovery.
 
-AttemptResponse: `{id:GUID,ordinal:int,startedAt:UTC,leaseExpiresAt:UTC,finishedAt:UTC|null,outcome:"inFlight"|"succeeded"|"transientFailure"|"permanentFailure"|"ambiguous"|"abandoned",errorCode:string|null,errorSummary:string|null,httpStatus:int|null,smtpStatus:int|null,retryAfterMilliseconds:long|null}`. Ordinal1..5. No full remote error/body, claim token or secrets. Failed does not guarantee nonreceipt after ambiguous attempts. No admin resend route.
+AttemptResponse: `{id:GUID,ordinal:int,startedAt:UTC,leaseExpiresAt:UTC,finishedAt:UTC|null,outcome:"inFlight"|"succeeded"|"transientFailure"|"permanentFailure"|"outcomeUnknown",errorCode:string|null,errorSummary:string|null,httpStatus:int|null,smtpStatus:int|null,retryAfterMilliseconds:long|null}`. Ordinal1..5. No full remote error/body, claim token or secrets. OutcomeUnknown records interrupted/uncertain sends; claims count even if process died before send. Failed does not guarantee nonreceipt. No admin resend route.
 
 ## Error contract
 
@@ -246,4 +246,4 @@ All application errors use `application/problem+json` ProblemDetails; gateway-le
 
 Future tests must enumerate routes to prove absence of MapIdentityApi features; check anonymous/A/B/admin/machine matrix, hidden ownership, stale PUT/DELETE, exact JSON numeric strings and unions, changed-payload conflicts, actor scopes, HMAC raw-byte vectors and skew boundaries, page cursor isolation, no secrets, limits, accepted-but-unsent response and duplicate recovery.
 
-BLOCKERS: approve contracts/limits/dependency pins; reconcile concurrency/state names with architect; confirm .NET10 login response/runtime behavior; approve provider/window/repeated-snapshot/RSS-baseline semantics and permissions before live enablement. No frontend implementation is included; API consumer examples and OpenAPI generation belong to backend tasks.
+Baseline contracts/limits/five states/optimistic edits, repeated snapshots, RSS suppression and AngleSharp family are accepted. Exact approved-family stable pins delegated after checks. BE-003/004 must verify Windows sidecar ownership/path checks and actual .NET10 serializer/Identity behavior; no runtime assertion here. Provider choice/rights block affected contracts/live enablement; nonlocal/production gates remain. Local DPAPI is accepted, not portable with DB. No frontend included; OpenAPI/examples belong to backend tasks.

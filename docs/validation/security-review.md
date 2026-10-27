@@ -26,3 +26,8 @@ No code, endpoints, installed packages, generated SQL, tests, exploits, infrastr
 
 ## Correction and re-review
 Initial report recorded. S1–S4 correction evidence and independent re-review verdict will be appended; no closure is claimed by this initial record.
+
+### Correction cycle 1 — independent design re-review: Approved
+Security auditor independently accepted the six reconciled documents and superseded-ADR register. No remaining design must-fix for S1–S4. Evidence: consistent 15-minute/900-second token and five-state/dispatch/limits contracts; explicit outer singleton gate including Identity; Windows canonical lifetime FileShare.None sidecar with restricted alias scope; all-growth admission with normal/emergency disk headroom and nonrecursive diagnostics.
+
+This closes **design** findings only. No code, runtime lock/WAL/headroom/Identity verification, package scan, deployment or production assurance. Runtime proof belongs to BE-003 onward. User's accepted baseline/delegated pins were not reopened as missing approvals. Original findings above are retained as process evidence.

@@ -14,7 +14,7 @@ The original brief leaves importance, sources, detection and administration unde
 - Sandbox receivers: local email capture and fake Slack endpoint.
 
 ## Business Context
-FACT: this is a developer-job assignment emphasizing visible AI direction, judgment, validation and milestone history. Product scope is approved; technical proposals require approval before implementation.
+FACT: this is a developer-job assignment emphasizing visible AI direction, judgment, validation and milestone history. Product scope and the active recovery baseline are now approved for the Windows local build; material departures still require approval.
 
 ## Desired Outcome
 A small backend demonstrable through API requests and deterministic tests, with explicit integration limitations, durable processing semantics, and individually buildable task specifications.
@@ -63,8 +63,8 @@ INFERENCE: sandbox delivery removes the need for live-channel credentials but do
 | Gate | Owner / resolution |
 |---|---|
 | OQ-001 — BLOCKER for live sources | User/operator approves providers, coverage, currency, jurisdiction, permitted use and attribution. |
-| OQ-002 — BLOCKER for matching | User approves proposed keyword/threshold/window/repeat/baseline semantics in architecture and ADRs. |
-| OQ-003 — BLOCKER for implementation | User approves technical architecture, identity, schema/contracts and dependencies. Security review is not approval. |
+| OQ-002 — Resolved for local baseline | User accepted keyword/threshold/window/repeat/baseline semantics of active recovery architecture/ADRs; provider selection/rights remain OQ-001. |
+| OQ-003 — Resolved baseline; verification required | User accepted active recovery architecture/identity/contracts, delegated named compatible dependency pins after checks and chose Windows local sandbox. Reconcile stale drafts; implementation tests/reviews do not substitute for approval of future material changes. |
 
 These gate affected implementation, not completion of the design package.
 

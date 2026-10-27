@@ -2,6 +2,8 @@
 
 Use one stable task ID at a time. This template is not blanket permission to implement unapproved architecture or operate infrastructure.
 
+Current authority: the user has explicitly approved sequential implementation of the active recovery baseline and direct-main commit/push after each tested/reviewed chunk. Reviews should be brief and changes-focused. Named dependency pins may be selected after checks; Windows local sandbox is approved. Consult the approval register for remaining provider/nonlocal/destructive-operation gates. Earlier no-commit instructions in this generic template are superseded for these specifically authorized milestone commits, not for arbitrary unrelated operations.
+
 ```text
 Implement task BE-XXX from docs/roadmap/tasks/ only.
 

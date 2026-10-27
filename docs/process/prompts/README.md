@@ -9,6 +9,8 @@ This folder records application-level user/agent task prompts, not hidden system
 - [Architecture recovery](03-architecture-agent.md).
 - [Source research agent](04-source-research-agent.md): saved by the research agent.
 - [Test strategy](06-test-strategy-agent.md).
+- [Implementation authorization and BE-001 dispatch](10-implementation-request.md).
+- Per-chunk actual implementation prompts/checks live in `../build/BE-xxx.md`; independent checks in `../../validation/BE-xxx-review.md`.
 - Architecture and subsequent design/review agent task records are saved with their artifacts when available.
 
 ## Historical gaps

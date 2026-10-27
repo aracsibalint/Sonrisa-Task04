@@ -1,8 +1,8 @@
 # Implementation Plan: Alerts MVP backend
 
-Status: Ready for Approval
+Status: Approved
 
-Readiness is documentation readiness only, **not technical approval or permission to implement**. All technical proposals below remain Proposed; the explicit reconciliation/dependency/provider gates in Open Questions block the affected work. No code, test execution, deployment or migration is claimed.
+The user accepted the active six-ADR recovery baseline and Windows local sandbox; see [approval register](../process/approval-register.md). This is implementation authorization for that baseline, **not runtime verification**. Exact approved-family stable pins are delegated after compatibility/license/advisory checks. Provider choice/rights and nonlocal/production operation remain separate gates. This documentation task claims no code, tests, deployment or migration.
 
 ## Problem
 
@@ -10,7 +10,7 @@ Build the backend described by [approved scope](../process/approved-scope.md) an
 
 ## Proposed Solution
 
-One .NET10 deployable ASP.NET Core Api with a BackgroundService supervising independent polling and delivery loops. Four code projects: Domain, Application, Infrastructure, Api. EFCore/SQLite holds Identity, rules, normalized immutable events, RSS checkpoints/seen keys and durable notification intents/attempts. One singleton async mutation gate serializes **all** writes. A bounded acceptance transaction commits event + rule evaluation + positive matches + every selected delivery intent, with no network under gate/transaction. Send asynchronously only after commit; acknowledge durable acceptance, not delivery.
+One .NET10 deployable ASP.NET Core Api with a BackgroundService supervising independent polling and delivery loops. Four projects: Domain, Application, Infrastructure, Api. EFCore/SQLite holds Identity, rules, immutable events, RSS checkpoints/seen keys and durable intents/attempts. One singleton nonreentrant async mutation gate serializes **all** writes. Outer Application use case owns admission once; scoped participants receive internal admission context without reacquisition/capture. A bounded transaction commits event + rule evaluation + all selected intents directly, no match table. No network/hash work under admission/transaction. Send after commit; acknowledge durable acceptance, not delivery.
 
 Use fixed configured sources/destinations, provisioned identities/roles, built-in opaque bearer explicit login, source-specific HMAC earthquake ingress. Conditional live proposals are NASA news RSS and Binance BTCUSDT; approval/rights/region remain blockers. Exact market threshold is absolute inclusive magnitude per poll slot, not crossing; RSS initial baseline is suppressed.
 
@@ -20,7 +20,7 @@ Canonical boundaries/alternatives: [overview](../architecture/overview.md), [pro
 
 Dependency direction: Domain none; Application -> Domain; Infrastructure -> Application/Domain; Api -> Application plus Infrastructure composition. One operation-scoped DbContext, never singleton/captured by workers. No mediator, generic repository, plugin framework, broker, event sourcing or separate matcher worker. Hosting boundary creates scopes per poll acceptance/claim/completion. Async I/O with CancellationToken throughout, no blocking waits. Reads AsNoTracking/projected/paged; pure bounded decimal predicates in memory by explicit SQLite design exception.
 
-One process and local persistent SQLite only; in-process gate is not distributed. No horizontal replicas or network-share database. Persist separate protected Data Protection key ring. Explicit pre-start migrations, startup validates schema/config, independent loop health, no destructive self-repair. PostgreSQL is a future separately approved migration, not another supported runtime now.
+One Windows process and local-NTFS SQLite only; gate is not distributed. Before every writer including migration/provisioning, canonicalize/validate DB path and hold sidecar FileStream(FileShare.None) for lifetime. Non-thread-affine/crash release; existence is not ownership, leave sidecar/no stale deletion. Reject UNC/network/ADS/reparse traversal/unsupported aliases/hardlinks; verify final identity/link counts, fail closed. BE-003 tests actual mechanics; no hostile-local-operator guarantee. No replicas/network DB. Separate current-user DPAPI key ring accepted for sandbox; no Docker requirement. Explicit pre-start migrations/schema checks, independent loop health, no destructive self-repair. PostgreSQL is separately approved future work.
 
 ## Components
 
@@ -28,28 +28,29 @@ One process and local persistent SQLite only; in-process gate is not distributed
 |---|---|
 | Domain — EventCandidate and three typed payloads | News (title/summary/link/publication), market (instrument/prices/exact interval), earthquake (Mw magnitude/simulated); immutable normalization/version values, checked decimal rules, validation |
 | Domain — Rule and three filters | Owner identity, category-specific filter, selected channels, enabled/deleted, expected version; no EF/Identity references |
-| Domain — MatchPredicates | NFC ordinal-ignore-case news substring; market checked cross-product >=; Mw inclusive >=; deterministic predicate version1 |
+| Domain — MatchPredicates | NFC ordinal-ignore-case news substring; market exact scale8 BigInteger cross-product >= (lift before arithmetic, no decimal rounding); Mw inclusive >=; deterministic predicate version1 |
 | Application — rule handlers | Create/Get/List/Replace/DeleteOwnedRule; enforce owner/quota/channel availability and expected-version checks under gate for mutations; no historical scan |
-| Application — AcceptEvent | Trusted mapped source/actor + stable key + canonical candidate; idempotency equality check, bounded active-rule load, pure match/render, full capacity precheck, atomic event/seen/matches/intents commit |
+| Application — AcceptEvent | Trusted source/actor + stable key + canonical candidate; equality check, bounded active rules, pure match/render, full capacity/disk precheck, atomic event/seen/intents commit; no match entity |
 | Application — delivery handlers | ClaimDueIntent, CompleteAttempt, RecoverExpiredClaims; token-fenced updates, attempt budget, immutable recipient snapshots, transient/permanent classification policy |
 | Application ports | Narrow IEventAcceptanceStore, IRuleStore, ISourceStateStore, IDeliveryStore, IIdentitySessionService, IChannelDirectory, ISourcePoller, INotificationSender, IClock and IAsyncMutationGate; unit-of-work operation boundary rather than generic repository CRUD |
 | Infrastructure — persistence | EF mappings/converters/checks/indexes/migrations, Identity stores, transaction/gate implementation, canonical keys/fingerprints, versioned config destination lookup |
 | Infrastructure — input adapters | Fixed NASA RSS, Binance ticker and manual/webhook normalizers; network outside gate; source baseline/seen/validator/backoff semantics; no live enablement before approval |
-| Infrastructure — output adapters | Proposed MailKit SMTP sender and typed HttpClient fake/real Slack sender; resolve immutable target secret reference at send time; bounded safe rendering/response validation |
+| Infrastructure — output adapters | Approved MailKit family SMTP sender and typed HttpClient fake/real Slack sender; immutable target secret resolution, bounded safe rendering/response validation; real channel enablement separately gated |
 | Api — transport/hosting | v1 DTOs, ProblemDetails/auth/ownership policy wiring, HMAC raw-byte validation, limits, DI, explicit login and BackgroundService lifecycle, health/readiness, OpenAPI surface |
 
-Ports are proposed responsibility boundaries, not a requirement to create one generic framework per row. Concrete signatures/namespace naming are developer-level choices after contract acceptance; no component may move domain predicates into endpoints or accept caller-selected source/destination URLs.
+Ports describe responsibility boundaries, not a generic framework per row. Concrete signatures/naming are developer-level choices within accepted contracts; no component may move predicates into endpoints or accept caller-selected source/destination URLs.
 
 ## Data Model
 
-Normative [data model and evolution](../data/data-model-and-evolution.md) specifies every field, nullability, CHECK, FK, unique key and query index. Initial entities: Identity tables, ChannelDestination, SourceState, SeenSourceItem, SourceFailure, Event, Rule, RuleMatch, NotificationIntent, DeliveryAttempt.
+Normative [data model and evolution](../data/data-model-and-evolution.md) specifies fields/nullability/CHECK/FK/uniques/indexes. Entities: Identity tables, ChannelDestination, SourceState, SeenSourceItem, SourceFailure, Event, Rule, NotificationIntent, DeliveryAttempt. Direct Event+Rule+Owner+Destination -> NotificationIntent edges; no match table or identifier.
 
 - Canonical invariant decimal TEXT with strict converter/domain checks; numeric comparisons in bounded in-memory decimal operations, never database ordering/range of numeric text or REAL conversions. UTC epoch milliseconds INTEGER for scheduling; no SQLite DateTimeOffset comparison assumptions.
 - Event unique `(SourceId,ExternalKey)`; manual key includes authenticated actor, webhook key uses source+producer ID, RSS GUID/link key is versioned, market key is source/instrument/window/schedule/slot. Payload canonical equality: unchanged retry original, changed controlled input409, changed poll diagnostic only. Identity strings use ordinal comparison and collision-free encoding, not ambiguous concatenation.
 - RSS baseline/seen identities persist; initial acceptable200 suppresses current valid items atomically, later new eligible entries commit one at a time. Validators advance only after complete response processing; partial failure dedups earlier committed items on replay.
-- Rule soft delete, immutable category, versioned optimistic concurrency;20 undeleted/owner,200 total. Rule changes affect future accepted events only; old pending snapshots survive pause/delete.
-- Event transaction includes evaluated count/version and positive RuleMatch rows, no negative matches/unprocessed event queue. Intent per matching rule/event/channel unique, bounded<=400/event, nonterminal cap10000; all-or-nothing fan-out.
-- Intent snapshot includes recipient identity/config version, rule/filter/payload version and rendered body; no raw Slack URLs in DB. Four-state handoff contract Pending/InFlight/Sent/Failed; future-due Pending represents retry, token-fenced claim/attempt history survives restart. Pending architect naming reconciliation noted below.
+- Rule soft delete, immutable category, optimistic Version/ETag;20 active/owner,100 active global, paused excluded. Creation/activation checks quota under gate. Commit ordering selects successful rule version for event acceptance; old snapshots survive pause/delete.
+- Event transaction includes evaluated count/version, no match rows/unprocessed queue. Unique(EventId,RuleId,Channel), max200 intents/event; projected Pending+InFlight+RetryScheduled<=20,000, retained all statuses<=250,000; all-or-nothing fan-out.
+- Intent directly contains immutable RuleVersion, RuleNameSnapshot, Category, FilterSnapshotJson(max2048 validated), PredicateVersion, MatchedAtUtcMs, recipient/config/payload versions and rendered body; no raw Slack URLs. Five states Pending/InFlight/Delivered/RetryScheduled/Failed and OutcomeUnknown attempts; token-fenced history survives restart.
+- SourceState.ActivatedAtUtcMs persists source initialization/enable time, never resets on process restart; staleness falls back to it before first successful fetch/observation.
 - No automatic retention purge; schema evolution, backup/key continuity and PostgreSQL provider/index/decimal/collation cutover checks are specified separately. SQLite maximum key length does not automatically fit PostgreSQL B-tree limits.
 
 ## APIs
@@ -62,37 +63,41 @@ Admin surface: POST /api/v1/admin/events; GET events/list/detail, sources/list/d
 
 New manual/webhook event201 after commit; identical retry200 original; changed canonical payload same key409. Admin counts accepted matches/intents; webhook response omits cross-user counts. Uncertain client commit resolves with stable retry key, not a new ID. JSON decimals are strings; UTC timestamps millisecond `Z`. Errors ProblemDetails with safe codes; wrong-owner404, stale version412, missing delete precondition428, caps/writer timeout503, rate limit429. Lists default25/max100 with scope/filter-bound protected cursors.
 
-Explicit framework login emits30m opaque access token; no MapIdentityApi, registration, reset, logout or refresh endpoint. Framework response may include unusable refreshToken; verify exact pinned framework surface in auth task. Contract-first OpenAPI and HTTP examples are backend deliverables, not permission to add a frontend.
+Explicit framework login emits15m opaque access token(expiresIn900); no MapIdentityApi, registration/reset/logout/refresh endpoint. Framework refreshToken is unused/discard-only; verify pinned framework surface in auth task. OpenAPI/HTTP examples are backend deliverables, not frontend permission.
 
 ## Backend
 
 ### Rule and authentication flow
 
-Authenticate, derive subject; validate DTO before mutation; acquire gate<=5s; create scoped transaction; load owned undeleted rule and expected version; enforce quota/available destinations; commit incremented version; release. Identity store writes including failed-login counters/rehash share gate but password hashing/network never holds an open transaction. Verify framework integration with actual stores. Provision accounts idempotently from injected secrets, never reset passwords on startup. Role membership is explicit; authorization rechecked at Application boundary.
+Authenticate/derive subject; validate DTO; outer Application use case acquires once(max32 waiters,2s deadline; SQLite busy1s), measures disk admission, creates scoped short transaction, loads owned rule/version, enforces active quota/destinations, commits incremented version, releases. Scoped participants use internal admission context without reacquisition/capture. Every Identity write including failed count/reset/rehash/lockout/stamps/provisioning shares admission. Hash/verify outside admission/transaction; reload relevant hash/stamps/lockout under admission before sign-in; if changed release for bounded re-verification outside admission then reload. No credential issuance without required commit. Idempotent injected-secret provisioning never resets existing passwords on restart. Explicit roles/Application authorization.
 
 ### Event acceptance sequence
 
 1. API auth or trusted poll mapping selects source/category/actor; bounded parse and pure canonicalization outside gate. Source requests finish first; no upstream network under lock.
 2. Acquire gate and transaction. Lookup canonical key first; equal existing normalized content returns original without rematching (relative age checks only for a new event). Changed controlled content409; poll preserves first value/diagnoses. Suppressed RSS identity remains suppressed.
-3. For new key, final validation includes clock/window bounds and slot not expired. Load enabled/undeleted category rules<=200 and selected provisioned destinations. Compute checked predicates/snapshots locally. Reject overflow, unusable destination or backlog capacity rather than omit a rule/channel.
-4. Insert immutable event with evaluated count/version; applicable seen row; positive rule-version/filter snapshots; full delivery fan-out. Enforce DB uniqueness/FKs. Commit and release gate; only then respond201 or proceed with poll completion.
+3. For new key, validate clock/window/slot; load enabled/undeleted category rules<=100 and destinations. Compute predicates/snapshots; check max200 fan-out, projected outstanding20,000/retained250,000 and disk headroom. Reject overflow/unusable target/capacity rather than omit a rule/channel.
+4. Insert immutable event/evaluated count/version, applicable seen row and all intents with direct rule/filter snapshots; no match rows. Enforce uniques/FKs; commit/release before201 or poll completion. Zero-match events still require normal growth admission.
 5. Worker independently sends intents; API caller never waits for email/Slack. Crash before commit leaves no partial records; after commit all work durable. Request disconnect after commit may hide response, so stable-key retry is required.
 
 ### Polling sequence
 
-One poll/source, fixed HTTPS endpoints/no redirects;10s timeout, RSS2MiB/500 items and market64KiB after decompression; safely bounded XML/JSON. Persist attempt/health independently. RSS whole-document validation before baseline, no DTD/resolver; GUID else normalized link; missing/invalid dates rejected, baseline/old suppressions durable; successful validators only after all items resolved. New eligible items use acceptance one-by-one, so rule edits between feed items are allowed. NASA hourly conditional request; no historical page fetch.
+One poll/source, fixed HTTPS/no redirects;10s timeout, RSS2MiB compressed/decompressed/max100 items, market64KiB compressed/decompressed; bounded XML/JSON. News title500/summary4000/combined16KiB UTF-8; approved AngleSharp family deterministic text extraction, RSS summary truncated/flagged before matching, manual oversize rejected. Persist attempt/health under admission. RSS whole-document validation before baseline, no DTD/resolver; GUID else normalized link; invalid dates rejected, baseline/old suppressions durable; validators only after all items resolved. Accept eligible items one-by-one; rule edits between items allowed. NASA candidate hourly, no historical fetch. Persist source activation at enable, not restart.
 
-Binance one60s UTC slot captured before fetch; exact86400000ms interval with close freshness[-5m,+1m], BTCUSDT/USDT never USD; positive prices bounded and invariant; derive signed percent and compare absolute cross-product before display rounding. Retry retains slot only while unexpired; restart/current slots only, no backfill. Same value in next slot intentionally can notify again. Source state records separate fetch and valid-observation times, failures/backoff/blocking;401/403/404/418 and repeated schema faults never silently switch provider. Source polls independent of delivery recovery.
+Binance one60s UTC slot captured before fetch; exact86400000ms interval with close freshness[-5m,+1m], BTCUSDT/USDT never USD; positive prices bounded and invariant. Lift price/threshold decimal coefficients to scale8 BCL BigInteger values before exact absolute cross-product comparison; checked decimal products can silently round. Derived signed decimal percent is display-only and may round, never authority for matching. Retry retains slot only while unexpired; restart/current slots only, no backfill. Same value in next slot intentionally can notify again. Source state records separate fetch and valid-observation times, failures/backoff/blocking;401/403/404/418 and repeated schema faults never silently switch provider. Source polls independent of delivery recovery.
 
 ### Delivery sequence
 
-Each1s scan recovers expired orphaned claims, then claims oldest due Pending in transaction under gate; increment attempt count/create ordinal/token/2m lease; release; send snapshot with15s timeout. Recheck destination identity/revocation without redirect; never substitute current owner destination. Completion under gate requires same token, updates attempt/status only. SMTP success=server accepted message, not human receipt; Slack success=expected HTTP success and body `ok` for approved webhook/fake contract, not arbitrary200 with error text.
+Each1s scan waits prior unexpired leases and recovers only expired orphaned claims after cancel/await of local live operations. One dispatcher/channel claims oldest due Pending or RetryScheduled under admission/transaction with completion headroom, increments ordinal/token/2m lease; releases and sends with10s I/O timeout. Recheck immutable target/revocation, never redirect/substitute. Completion under admission is token-fenced. SMTP success=server acceptance, Slack=expected HTTP success/body `ok`, not arbitrary200. Neither means human receipt.
 
-Transient network/408/429/5xx/SMTP4xx -> future Pending using10s/30s/2m/10m plus0..10% nonnegative jitter, longer valid Retry-After honored<=24h. Permanent destination/auth/payload error/SMTP5xx, revoked/missing old target, attempts exhausted or Retry-After>24h ->Failed with safe code. Five total attempts, including interrupted claims. Sent/Failed terminal. Never reclaim a local operation while still running; await/cancel bounded I/O first. Startup waits unexpired old lease, recovers expired as ambiguous/abandoned. Crash after receiver acceptance before DB completion may resend; no exactly-once or guaranteed eventual delivery.
+Transient network/timeout/408/429/5xx/SMTP4xx -> RetryScheduled after ordinal n using30s*2^(n-1),0..10% nonnegative jitter, local cap30m; honor larger valid Retry-After with no24h terminal cutoff. Permanent rejection/revocation/missing old target or fifth failed attempt ->Failed safe code. Pending=count0/due; InFlight=count1..5/claim+lease; Delivered=count1..5/deliveredAt; RetryScheduled=count1..4/due; Failed=count1..5, or count0 only explicit PermanentProvisioningFailure before any claim/send(no fabricated attempt). Count interrupted claims; recover expired orphaned attempts as OutcomeUnknown then retry if budget remains else Failed. Delivered/Failed terminal. Receiver acceptance before lost acknowledgement/commit can duplicate sends; no exactly-once/eventual-delivery promise.
 
-### Dependencies (all exact pins require Level2 approval)
+### Disk admission and storage failure
 
-Approved stack does not approve arbitrary packages. Proposed EFCore10 Sqlite/Design and Identity.EntityFrameworkCore10; matching ASP.NETCore10 test host; xUnit/Microsoft.NET.Test.Sdk/runner; MailKit SMTP. Prefer shared-framework/BCL HTTP/JSON/XML/crypto/rate-limiting/logging. No Slack SDK, feed SDK, resilience/mediator package or PostgreSQL dependency now. Exact versions, support/licences/vulnerability status must be recorded before restore. HTML-to-text parser/policy remains a named blocker, not an implicit developer selection. Configuration, new dependency and material schema/auth changes follow engineering-policy Level2; destructive/security/production operations retain Level3.
+Measure every mutation/all growth, including zero-match events, seen keys, rules and failure history. Normal mutation requires1GiB free after16MiB conservative growth allowance. Emergency256MiB after1MiB allowance is only for bounded send-result/recovery and essential Identity security bookkeeping. No send without completion headroom. Below emergency, unmeasurable space or DB write/checkpoint failure stops claims/sends/mutations and fails readiness503; no login credential/acceptance success without required commit. Use bounded nonpersistent redacted diagnostics, preventing recursive failure-history growth; no automatic deletion. Budgets are unmeasured/not OS reservations. BE-003 tests actual WAL/checkpoint/headroom behavior.
+
+### Dependencies (approved families; exact pins delegated after checks)
+
+Accepted families: EFCore10 Sqlite/Design, Identity.EntityFrameworkCore10, ASP.NETCore OpenAPI/test host, xUnit v3/test SDK/runner, MailKit, AngleSharp, Mailpit. Select maintained compatible stable pins after support/license/advisory checks, introduce when needed; SDK10.0.303 selection is delegated per register. No unselected-parser blocker. Prefer BCL/framework HTTP/JSON/XML/crypto/rate limiting/logging. No Slack/feed SDK, resilience/mediator/PostgreSQL dependency. New families/material incompatibilities or semantic/schema/auth departures return for approval; destructive/security/production operations retain Level3. No package installation claimed.
 
 ## Frontend
 
@@ -102,11 +107,11 @@ N/A — backend-only approved scope. No UI, frontend framework, browser auth imp
 
 Normative [security design](../architecture/security.md): real Identity, owner/Admin/machine separation, fixed source/destination allowlists, TLS nonlocal, narrow named-service sandbox exception, HMAC raw bytes/skew/replay, safe XML DTD off/resolver null, streaming compressed/decompressed limits, output escaping/mention suppression, secret redaction, separate protected Data Protection keys and provisioned password/secret injection.
 
-Login10/min/IP and5 failures/15m lockout; webhook preauth120/min/IP and60/min/source; owner/admin120/min/subject, manual30/min/admin; global request concurrency20/no queue. These proposals are safety limits, not benchmarked capacity. Single writable process, read-only admin configuration surface, scoped cursors and explicit gate coverage prevent accidental bypass. Egress/DNS/proxy/key-at-rest deployment choice must be resolved before nonlocal operation.
+Login10/min/IP and5 failures/15m lockout; webhook preauth120/min/IP and60/min/source; owner/admin120/min/subject, manual30/min/admin; global request concurrency20/no queue. Approved safety limits are unbenchmarked. Single-instance ownership, read-only admin configuration, scoped cursors and gate coverage require tests. Current-user DPAPI is accepted locally; nonlocal egress/DNS/proxy/host/key controls remain gated.
 
 ## Observability
 
-Use built-in structured logs/Meter/Activity with correlation/source/event/rule/version/intent/attempt IDs and safe codes, no PII/credentials/raw payloads/full URLs. Counters: accepted/duplicate/suppressed/rejected, match/intent count, poll/fetch/schema failure, auth/rate/owner rejects, delivery attempts/ambiguous/terminal, gate/capacity errors. Gauges/histograms: oldest due/queue age, backlog, source fetch versus observation age, gate wait/transaction/send duration, disk/file growth.
+Use built-in structured logs/Meter/Activity with correlation/source/event/rule/version/intent/attempt IDs and safe codes, no PII/credentials/raw payloads/full URLs. Counters: accepted/duplicate/suppressed/rejected, match/intent count, poll/fetch/schema failure, auth/rate/owner rejects, delivery attempts/OutcomeUnknown/terminal, gate/capacity errors. Gauges/histograms: oldest due/queue age, backlog, source fetch versus observation age, gate wait/transaction/send duration, disk/file growth.
 
 Persist source status/failures and attempt histories for admin inspection; do not depend on log survival. Health/live is process alive, ready checks schema/provisioning/local DB/worker loops; upstream outage is degraded source state, not an automatic crash/restart loop. No telemetry exporter/service dependency or production monitoring promise without approval.
 
@@ -125,11 +130,11 @@ All tests below are future acceptance evidence; documentation research probes ar
 | End-to-end | Synthetic/manual/simulated event per category -> matching rule -> local email/fake Slack; nonmatch no intent; persistence across restart; rejected input no partial work; admin inspect; approved live-source smoke separately labelled |
 | Security/ops | XML XXE/HTML/mention/CRLF, redirects/decompression/DNS policy, forwarded-IP trust, secrets absent, wrong host sandbox fail-closed, single-instance prevention, capacity pressure/readiness and key persistence/restore |
 
-Fixtures are synthetic with fixed clock/IDs; do not commit live copyrighted feed/market datasets without rights clearance. WebApplicationFactory uses actual SQLite for relational semantics, not EF InMemory. Unit tests have no network; deterministic receiver failures and crash injection in integration harness. Benchmark bounded200-rule/400-intent transaction and sender backlog before claiming supported throughput. Review -> audit -> fix -> retest capped at3 automatic cycles, then escalate blockers.
+Fixtures synthetic/fixed clock/IDs; no live copyrighted datasets without rights clearance. WebApplicationFactory uses real SQLite, not EF InMemory. Unit tests offline; deterministic receiver failures/crash injection. Benchmark100-active-rule/200-intent transaction/backlog before throughput claims. BE-003 additionally tests Windows sidecar lifetime/aliases/link checks/crash release, gate nonreentrancy/admission propagation, every mutation's disk admission and WAL/checkpoint failure. BE-004 tests hash/stamp/lockout races and no credential issuance without required commit. Review -> audit -> fix -> retest max3 automatic cycles then escalate.
 
 ## Migration / Rollout
 
-Documentation-only now. Before implementing: approve relevant ADRs, contracts/schema/limits/dependencies and reconcile conflicts. Create tested initial SQLite migration; no EnsureCreated or automatic destructive startup changes. Rehearse fresh initialization and additive upgrade; reviewed pre-start maintenance with app stopped, consistent backup and separate protected key/secret configuration. Provision synthetic users/destinations, keep live providers disabled, validate one-process lock and readiness.
+Documentation-only in this task; baseline implementation is approved, not verified. Select/check approved-family pins, create tested initial SQLite migration; no EnsureCreated/automatic destructive changes. Rehearse initialization/additive upgrade; reviewed stopped-app maintenance under lifetime writer ownership, consistent backup and separate DPAPI key/secret config. Provision synthetic users/destinations, keep live providers disabled, validate path/lock/headroom/readiness behavior.
 
 Enable sandbox/manual/webhook scenarios only after tests; enable each live source only after provider content/rights/region approval plus explicit runtime smoke checks. Successful public GET research is not permission to enable. Verify source baseline before expecting RSS events; never disable baseline to make a demo appear active. Production deployment/secret changes are not authorized by this plan.
 
@@ -137,16 +142,16 @@ Future schema/channel/provider evolution and dedicated PostgreSQL data transfer/
 
 ## Implementation Steps
 
-Fixed roadmap IDs below refer to [roadmap](../roadmap/backend-roadmap.md) and actual per-task filenames. Dependency relationships are implementation order, **not dates or estimates**. Each task requires its disclosed technical choices accepted before code; no task may silently choose architecture to clear a blocker.
+Fixed IDs refer to [roadmap](../roadmap/backend-roadmap.md) and per-task filenames (not edited here). Dependencies are order, **not dates/estimates**. Baseline is accepted; prerequisites/tests and remaining provider/nonlocal gates still apply. No task may silently invent architecture to clear a blocker.
 
 | ID / task | Requires | Deliverable and exit evidence |
 |---|---|---|
-| [BE-001 — Scaffold](../roadmap/tasks/BE-001.md) | Technical/dependency baseline approval | Four projects, .NET10 pinned supported tooling, nullable/async/build/test structure, composition skeleton and dependency record; restore/build proof, no hidden packages. |
-| [BE-002 — Domain](../roadmap/tasks/BE-002.md) | BE-001; matching/window/baseline and news-text policy approval | Three payload/filter value models, decimal/time/key normalization, pure predicates/snapshots; deterministic bounds/overflow/normalization tests. |
-| [BE-003 — Persistence](../roadmap/tasks/BE-003.md) | BE-001,002; schema approval and status reconciliation | Explicit Identity/domain mappings/migration, indexes/checks/converters, writer gate/unit-of-work; real SQLite relational/rollback/restart tests. |
+| [BE-001 — Scaffold](../roadmap/tasks/BE-001.md) | Accepted baseline; delegated version checks | Four projects, pinned supported .NET10 tooling, nullable/async/build/test/composition/dependency record; restore/build proof, no hidden packages. |
+| [BE-002 — Domain](../roadmap/tasks/BE-002.md) | BE-001; accepted matching/baseline/AngleSharp family | Three payload/filter models, decimal/time/key normalization, pure predicates/snapshots; deterministic bounds/overflow/text tests. |
+| [BE-003 — Persistence](../roadmap/tasks/BE-003.md) | BE-001,002; accepted schema/five states | Identity/domain migration/CHECK/FK/index/converters, outer-owned nonreentrant gate, direct intent snapshots; real SQLite rollback/restart/WAL/checkpoint/headroom and Windows lifetime sidecar/path/link/crash tests. |
 | [BE-004 — Authentication](../roadmap/tasks/BE-004.md) | BE-003; auth/key/secret choices approved | Provisioned roles/accounts and versioned destinations, explicit built-in opaque login, owner/Admin policies, safe me/channels; gate-covered Identity writes, route-inventory/expiry/lockout/redaction tests. |
-| [BE-005 — Rules](../roadmap/tasks/BE-005.md) | BE-002,003,004; expected-version reconciliation and rule contract approval | Owner list/get/create/replace/soft-delete and enabled toggle; channel/quota/version validation, keyset paging; A/B/admin isolation and stale-edit tests. |
-| [BE-006 — Acceptance/manual](../roadmap/tasks/BE-006.md) | BE-002,003,004,005 | One shared acceptance pipeline, actor-scoped manual keys, event/match/full-intent transaction and snapshots/cap;201/200/409/503 and race/fault rollback evidence. No send required to accept durably. |
+| [BE-005 — Rules](../roadmap/tasks/BE-005.md) | BE-002,003,004; accepted expected-version contract | Owned CRUD/soft-delete/enabled toggle; active20-owner/100-global quotas/channel/version/keyset validation; isolation/stale-edit tests. |
+| [BE-006 — Acceptance/manual](../roadmap/tasks/BE-006.md) | BE-002,003,004,005 | Shared pipeline, actor-scoped keys, event/full-intent direct snapshots/caps/disk transaction(no match table);201/200/409/503, races/rollback. No send required for durable acceptance. |
 | [BE-007 — Webhook](../roadmap/tasks/BE-007.md) | BE-006; HMAC contract/secret provisioning approved | Raw-byte signature authentication, source mapping and earthquake DTO, sample controlled sender contract; valid/invalid/skew/replay/changed-body tests. |
 | [BE-008 — Polling](../roadmap/tasks/BE-008.md) | BE-006; approved normalization and adapter contracts; live gate separate | Fixed-source RSS/market adapters, scheduler/source health/seen/baseline/slot state/backoff; offline fixtures and fault/restart evidence. Live smoke only after permissions/currency/region approval. |
 | [BE-009 — Delivery](../roadmap/tasks/BE-009.md) | BE-006; state/dependency/receiver contracts approved | Durable claim/send/complete/recover, MailKit and fake-Slack transports, sanitized snapshots; transient/permanent/restart/duplicate ambiguity/recipient revocation tests. Can proceed parallel to007/008 after shared contracts. |
@@ -159,7 +164,7 @@ CI scaffolding can be prepared in BE-001; BE-012 finalizes it against actual evi
 ## Risks
 
 - Provider rights/region unresolved; NASA coverage narrower and BTCUSDT not BTC/USD. Fixtures cannot satisfy real-source acceptance; do not silently downgrade acceptance or substitute providers.
-- Per-minute level-triggered market observations may generate repeated alerts; approve behavior/volume.200 matching rules *2 channels can create400 intents/minute while one slow sender cannot sustain it. Limits are safety bounds, not throughput claims; backlog may prevent ingestion and expose capture gaps.
+- Accepted per-minute level-triggered market observations may repeat alerts.100 matching rules*2 channels can create200 intents/minute while one slow dispatcher/channel may not sustain it. Safety bounds are not throughput claims; backlog can prevent ingestion/expose capture gaps. Provider choice/rights remain gated.
 - Local disk/process is a single point of failure; file loss is not solved by durable intents. One process essential for gate semantics; DB/key backup/restore testing essential for recoverability.
 - External send acknowledgment/timeout is ambiguous; retries may duplicate and final Failed may follow receipt. No exactly-once or eventual-success promise.
 - Source baseline/eviction/cache and no backfill can miss/suppress events; rules are ingestion-time eligible, not publication-time historical matches.
@@ -172,10 +177,10 @@ CI scaffolding can be prepared in BE-001; BE-012 finalizes it against actual evi
 - Async separate matching/outbox stage: lower ingress latency but needs durable unmatched work and historical-rule version semantics; bounded atomic acceptance is simpler for approved scope.
 - Separate workers/broker/microservices: more operational/distributed ordering complexity without approved scale requirement; defer to architect if measured limits require them.
 - Memory queue/inline send: rejected because restart loses work or network spans transaction and still cannot retract accepted messages.
-- Decimal REAL or SQLite text range matching: rejected for precision/ordering correctness; canonical text plus bounded checked decimals instead.
+- Decimal REAL or SQLite text range matching: rejected for precision/ordering correctness; canonical decimal text plus bounded in-memory predicates instead. Market cross-products use exact scale8 BCL BigInteger coefficients, not rounded decimal multiplication.
 - JWT/custom password/HMAC token scheme for users or MapIdentityApi wholesale: unnecessary/custom security or out-of-scope routes; framework opaque login only. HMAC is separate machine-message authentication using BCL primitives, not user token issuance.
-- BBC/Coinbase: research documents conditional alternatives, rights/window differences; not fallback providers. Exact Binance rolling interval is better evidenced, still unapproved.
-- BCL SmtpClient versus MailKit: avoiding a package is simpler dependency-wise, but framework guidance discourages SmtpClient for new work; MailKit is a disclosed Level2 proposal, not silently installed.
+- BBC/Coinbase: conditional alternatives with rights/window differences, not fallback providers. Binance remains candidate, not cleared provider.
+- BCL SmtpClient versus MailKit: framework guidance discourages SmtpClient for new work; MailKit family is accepted, pins delegated after checks, not installed by this documentation task.
 
 ## Estimated Effort
 
@@ -183,7 +188,7 @@ N/A per user request. No estimates or dates are included in the roadmap/task seq
 
 ## Definition of Done
 
-- Affected ADRs/contracts/schema/limits/dependency versions accepted; architectural discrepancy notes resolved visibly, no technical proposal mislabelled approved.
+- Accepted baseline reflected consistently; approved-family pins checked/recorded; material departures and still-gated providers/nonlocal/production choices not mislabelled approved or verified.
 - All FR/AC in [requirements](../requirements/alerts-mvp.md) traced to actual tests/evidence; failed/skipped/live-blocked items not marked passed. No new scope/UI/routes.
 - Real SQLite transactions/dedup/ordering/constraints, owner/Admin/machine isolation, all selected-channel delivery snapshots, restart/retry/ambiguity, safe bounds and log redaction verified.
 - Sandbox email/fake Slack flows reproducible with synthetic data; live NASA/Binance only if approved and actually tested, with precise limitations recorded. Documentation probes remain separate evidence class.
@@ -195,13 +200,13 @@ N/A per user request. No estimates or dates are included in the roadmap/task seq
 
 | Gate | Status / owner / required resolution |
 |---|---|
-| OQ-SD-001 — optimistic rule edits | **BLOCKER BE-005**: received handoff requires version concurrency; initial processing-flows section1 says last-committed edits. Proposed contract is expected version,412 stale,If-Match delete. Architect/orchestrator must align canonical flows before implementation. |
-| OQ-SD-002 — delivery state vocabulary | **BLOCKER BE-003/009**: handoff requests Pending/InFlight/Sent/Failed; initial ADR-003/flows use RetryScheduled/Delivered too. Proposed four-state contract maps retry to Pending+NextAttempt and Delivered to Sent without changing retry semantics; architect must reconcile schema/API/ADR. |
-| OQ-SD-003 — news HTML-to-text policy | **BLOCKER news portion BE-002/008**: approve vetted parser dependency/version or explicit conservative policy. No regex parser or silently added package; architectural normalization behavior must be deterministic/tested. |
-| OQ-SD-004 — technical acceptance | **BLOCKER affected build**: user accepts architecture, schema/API/auth/security limits, baseline/threshold/repeat behavior and exact dependency pins. Documentation authorization alone is insufficient. |
-| OQ-SD-005 — live providers | **BLOCKER live enablement**: user/operator approves NASA coverage, Binance BTC/USDT/region/terms/redistribution/attribution and exact24h contract; approve no-backfill baseline/repeat behavior. Offline adapters can be built after their technical contracts are approved. |
-| OQ-SD-006 — deployment/key protection | **BLOCKER nonlocal operation**: operator selects service identity/host, TLS/proxy/egress and Data Protection encryption/persistence/backup; do not assume DPAPI keys portable with DB. |
+| OQ-SD-001 — optimistic rule edits | **Resolved baseline**: Version/ETag,412 stale PUT/DELETE,If-Match delete; commit ordering selects eligible successful version, not last-write-wins. Runtime race tests required. |
+| OQ-SD-002 — delivery state vocabulary | **Resolved baseline**: Pending/InFlight/Delivered/RetryScheduled/Failed, OutcomeUnknown; no match table; direct immutable intent snapshots. Runtime state/recovery tests required. |
+| OQ-SD-003 — news HTML-to-text policy | **Resolved family approval**: AngleSharp, exact compatible stable pins delegated after checks; deterministic malformed-HTML/no-fetch/Unicode tests required. No parser-selection blocker. |
+| OQ-SD-004 — technical acceptance | **Accepted by user**: active six ADRs, recovery limits/schema/API/auth, baseline/threshold/repeat behavior and Windows local sandbox. Approved-family version selection delegated, not arbitrary dependency/material departure approval. |
+| OQ-SD-005 — providers | **BLOCKER final provider-specific contract/live enablement**: NASA/Binance remain candidates; user/operator must approve coverage/currency/window fit, region/terms/reuse/recipients/attribution. Technical repeat/suppressed-baseline semantics are accepted, not rights clearance. Synthetic testing does not clear gate. |
+| OQ-SD-006 — deployment/key protection | **Local choice accepted**: Windows current-user DPAPI, local NTFS single instance/loopback receivers, synthetic data, no Docker requirement. **BLOCKER nonlocal**: approve host/TLS/proxy/egress/key lifecycle; DPAPI not portable with DB. |
 | OQ-SD-007 — production operations | **BLOCKER production use**: retention/privacy/deletion/capacity/real-channel and availability objectives; no unstated SLA, automated purging or scaling proposal. |
 | OQ-SD-008 — framework verification | BE-001/003/004 must confirm actual .NET10 pins/login serializer/Identity converter and gated write paths; any materially different contract returns for Level2 approval, not silent implementation adaptation. |
 
-All other limits/schema/endpoints are explicit proposals in the linked documents. Changes to topology/system boundaries return to architect; solution designer does not authorize a replacement architecture.
+Baseline limits/schema/endpoints are accepted build contracts, runtime unverified. Windows path/link ownership and disk/WAL/checkpoint mechanics are BE-003 verification work, not a hostile-local-operator guarantee or OS capacity reservation. Material topology/system-boundary changes return for approval; this document persists specialist conclusions rather than authoring replacement architecture.

@@ -1,15 +1,18 @@
 # Acceptance and test plan: Alerts MVP
 
-Status: **Proposed; documentation only. No tests run and no implementation verified.**
+Status: **Reference strategy for the approved Windows local baseline.** This document is a plan, not a global test-pass claim. Actual chunk checks and scoped independent results are recorded separately in build/review evidence; BE-001 has been verified.
 
 ## Authority, facts and gates
 - FACT: [requirements](../requirements/alerts-mvp.md), [approved scope](../process/approved-scope.md), and [source feasibility](../research/source-feasibility.md) were read for this plan.
 - FACT: follow-up reconciliation read [architecture](../architecture/overview.md), [processing flows](../architecture/processing-flows.md), and the six canonical ADRs linked by the [ADR register](../adr/README.md): single-process, atomic acceptance, portable persistence, seeded authentication, source/rule semantics and durable delivery. Other similarly numbered draft files are not treated as the register's contracts.
-- FACT: product scope is approved; technical contracts, dependencies, authentication design and matching semantics are not.
+- FACT: product scope and active recovery technical/matching baseline are now user-approved for local Windows implementation; named compatible dependency pins delegated after checks. Live-provider rights/selection and nonlocal operation remain gated.
 - DECISION: use risk-based unit, relational integration, API and local end-to-end coverage; preserve AC-001–AC-015 as stable trace identifiers.
 - Proposed documented architecture: one process; bounded synchronous event/matching/delivery-intent transaction (no separate match table/queue); one asynchronous **all-writer** gate including Identity; per-slot market observations, not crossings; initial RSS baseline suppression; configured/provisioned destinations; built-in Identity opaque bearer authentication.
-- These proposals are test targets **only if approved**, not decisions made by this plan. Change the expected results explicitly if approval selects other semantics.
-- Approval BLOCKER OQ-001: provider/use/recipient/territory/permission approval before live enablement. Approval BLOCKER OQ-002: accept the now-defined proposed matching, baseline, repeat and window contracts. Approval BLOCKER OQ-003: accept architecture, identity, schema, API and dependencies before implementation. These are approval gates, not assertions that the documented technical proposals are missing.
+- These accepted baseline behaviors are test targets, not proof of runtime correctness. Change expected results explicitly if a future approved semantic change occurs.
+- Approval BLOCKER OQ-001 remains for provider/use/recipient/territory/permissions before live enablement. OQ-002/OQ-003 baseline approval is resolved; actual contract reconciliation, implementation and verification remain required.
+
+## Fast chunk verification mode
+The user requested development speed while explicitly retaining documentation. Use a Release build and targeted meaningful checks for each changed chunk; independent code review stays brief and diff-focused, with narrowly scoped risk-relevant security checks. This strategy is a catalog of final acceptance risks, not a mandate to rerun every scenario after each small change. Never mark unrun checks passed or call a smoke check full-MVP acceptance. Preserve useful existing tests rather than deleting them to appear faster.
 
 ## Strategy and test layers
 - **U — unit:** pure normalization, matching, validation, identity and scheduling policy; fixed UTC clock, deterministic slots and exact decimal values.

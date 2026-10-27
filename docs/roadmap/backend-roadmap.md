@@ -12,25 +12,13 @@ The proposed shape is one deployable modular .NET 10 application with API and in
 
 ## User approval checkpoint — before BE-001
 
-Record the user's explicit acceptance of the technical architecture, applicable ADRs, matching/repeat/baseline semantics, API and persistence contracts, security approach, operating bounds and dependency inventory with exact compatible package/tool versions. Resolve material contradictions or missing contracts first. Approval of documentation quality is not implementation approval. Later added dependencies or changed contracts need renewed approval.
+Resolved: user accepted the active recovery baseline, matching/repeat/baseline semantics and Windows local sandbox, and delegated maintained compatible exact pins for the named dependencies after license/advisory checks. See approval register. New dependency families/material departures still require approval; this is not provider permission or production authorization.
 
-The recovery overview, processing flows and six ADRs linked by the register settle the proposed direction: intent-contained matching snapshots; `Pending/InFlight/Delivered/RetryScheduled/Failed`; one dispatcher per channel; application-managed rule Version; HMAC-authenticated earthquake requests; and AngleSharp as the proposed HTML parser dependency. Commit ordering and optimistic version preconditions are complementary, not competing concurrency policies. These remain user-approval gates, not missing architectural choices. Use the ADR register, not similarly numbered superseded files.
+The accepted recovery baseline uses intent-contained matching snapshots; `Pending/InFlight/Delivered/RetryScheduled/Failed`; one dispatcher per channel; application-managed rule Version; HMAC earthquake requests; approved AngleSharp family when parsing is needed. Commit ordering and optimistic versions are complementary. Use the active ADR register, not superseded drafts.
 
-### Residual cross-document alignment checkpoint
+### Contract reconciliation — resolved
 
-At this follow-up's inspection, the schema/API/security files still contained the following exact differences. The lead/designer owns their correction; verify the forthcoming revisions before implementation. This records observed draft drift, not a second proposed design or permission to implement stale contracts.
-
-| Area | Recovery architecture / registered ADRs | Observed schema/API/security difference | Affected tasks |
-|---|---|---|---|
-| Persistence | No separate match table; snapshots on intents | Schema defines RuleMatch and required NotificationIntent.MatchId FK | BE-003, BE-006 |
-| Delivery | Delivered and RetryScheduled; interrupted outcome OutcomeUnknown; one dispatcher/channel | Schema/API use Sent and Pending-for-retry; schema attempt enum uses Ambiguous/Abandoned; schema/security require one global send | BE-003, BE-009, BE-010 |
-| Identity | Access lifetime in overview/ADR-004 | API/security retain a different access lifetime and login response expiry | BE-004 |
-| Rule/fan-out bounds | Active-rule caps and complete fan-out bounded by overview | Schema/API/security use larger total undeleted-rule/fan-out bounds, including paused rules | BE-003, BE-005, BE-006 |
-| Admission/retention | Bounded waiter count/deadline plus outstanding and retained-intent caps | Schema/API/security use different gate/backlog bounds and omit the overview's retained-intent admission cap | BE-003, BE-006, BE-010 |
-| Source/text/delivery bounds | RSS item/text limits, network timeout and retry policy in overview | Schema/API/security retain different RSS/string/send/retry bounds and long-Retry-After terminal policy | BE-002, BE-008, BE-009 |
-| Dependencies | AngleSharp proposed in overview | Security still describes HTML parser selection as undecided | BE-001, BE-002, BE-008 |
-
-Exact replacement values belong to the canonical overview and forthcoming schema/API/security, not duplicated roadmap configuration. The existing explicit Version/ETag details should be retained only as reconciled by their owner; no last-write-wins alternative is introduced here. Remove resolved rows when the corresponding canonical revisions are confirmed.
+The six canonical design files are aligned to the accepted baseline. Independent changes-focused documentation audit found no blocking contract contradiction; security re-review closed S1–S4 at design level. Token lifetime, no-match-table model, five states, active quotas, waiter/backlog/retained caps, RSS/text bounds, retry/dispatch and approved parser-family choices are reconciled. See the reconciliation prompt record and review reports. Windows lock/Identity/disk headroom still need implementation evidence, not renewed approval of the same baseline.
 
 Provider selection, rights, recipients, attribution and regional eligibility are a separate gate. [Source feasibility](../research/source-feasibility.md) proposes candidates; HTTP success does not establish permission. Synthetic BE-008 work can proceed after technical approval while live use is blocked. It cannot close AC-006/AC-015 or be reported as completed live integration. Final MVP acceptance remains blocked until the approved real RSS and market flows are demonstrated.
 
@@ -40,8 +28,8 @@ Every dependency below is a prerequisite for claiming completion; approval gates
 
 | Task | Scope | Explicit dependencies | Status |
 |---|---|---|---|
-| [BE-001](tasks/BE-001.md) | Solution/tooling scaffold | User technical/dependency approval checkpoint | Not started (approval/dependency gated) |
-| [BE-002](tasks/BE-002.md) | Domain validation and matching | BE-001 | Not started (approval/dependency gated) |
+| [BE-001](tasks/BE-001.md) | Solution/tooling scaffold | User technical/dependency approval checkpoint | Verified; committed/pushed 25c9bb4 |
+| [BE-002](tasks/BE-002.md) | Domain validation and matching | BE-001 | Verified after exact-boundary correction |
 | [BE-003](tasks/BE-003.md) | Relational model/migrations | BE-001, BE-002 | Not started (approval/dependency gated) |
 | [BE-004](tasks/BE-004.md) | Seeded identity/authorization | BE-003 | Not started (approval/dependency gated) |
 | [BE-005](tasks/BE-005.md) | Owner rule APIs/provisioned channels | BE-002, BE-003, BE-004 | Not started (approval/dependency gated) |
@@ -96,7 +84,7 @@ AC wording and authority remain in [requirements](../requirements/alerts-mvp.md)
 
 Each task is standalone: inspect its dependencies and canonical references; apply its approval gates; implement only scoped components; run relevant edge cases; obtain independent review and risk-relevant audit; record actual outcomes. Use [acceptance and test plan](../validation/acceptance-and-test-plan.md) for test layers and evidence format. Never replace SQLite constraint/transaction tests with EF InMemory, actual login with only a fake authentication handler, or source integration with fixtures alone.
 
-Completion requires the task's criteria, fulfilled prerequisites, an approval reference, actual check outputs, reviewed corrections and an honest limitation record. Record exact application-level prompts and summarized outcomes under `docs/process/`; protect secrets. Scope changes return to user approval. Unrun checks, blocked providers and missing conversation history remain explicit gaps. No deployment, destructive migration, secret change or commit/push is authorized by this roadmap.
+Completion requires the task's criteria, fulfilled prerequisites, approval reference, actual check outputs, reviewed corrections and limitations. Keep prompts/docs current; use fast targeted checks and brief changes-focused review. User explicitly authorizes short descriptive milestone commits/pushes directly to main after each completed chunk. No deployment, destructive migration or real-secret operation is inferred. Unrun checks/provider/history gaps remain explicit.
 
 ## Separately approved future work
 

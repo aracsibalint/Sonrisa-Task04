@@ -44,7 +44,7 @@ Rule pause/delete does not cancel committed work; destination changes do not rer
 
 ## Approval / references
 
-Approve duplicate risk, retry bounds, terminal failure and snapshots. [Overview](../architecture/overview.md) · [ADR-002](ADR-002-atomic-acceptance-and-ordering.md) · [ADR-004](ADR-004-provisioned-identity-and-trust.md)
+Approve duplicate risk, retry bounds, terminal failure and snapshots. [Overview](../architecture/overview.md) · [Historical ADR-002](ADR-002-atomic-acceptance-and-ordering.md) · [Active identity ADR-004](ADR-004-seeded-authentication.md). The originally referenced unfinished `ADR-004-provisioned-identity-and-trust.md` was never delivered; link repaired without reviving this superseded decision.
 # SUPERSEDED DRAFT — NOT A BUILD CONTRACT
 
 This interrupted-agent intermediate draft is retained as process evidence only. Its historical ADR-003 identifier was reused by a different active decision. Its delivery topic is replaced by [ADR-006-durable-delivery.md](ADR-006-durable-delivery.md); active ADR-003 is [portable persistence](ADR-003-portable-persistence.md). If text below conflicts with current architecture or contracts, do not implement it.
