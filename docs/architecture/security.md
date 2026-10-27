@@ -96,6 +96,8 @@ Future tests: route inventory, UserA/UserB/Admin/machine separation, lockout/rat
 
 ## Review notes / open questions
 
+- BE-003 implementation evidence: [build record](../process/build/BE-003.md) and [local storage runbook](../data/sqlite-local-operations.md). Windows final-handle path and link-count checks, junction/hardlink refusal, second-process exclusion/crash release and disk/WAL failure tests exist; independent review/audit is pending. The guard is cooperative local-sandbox ownership, not a hostile-local-operator/race-proof filesystem boundary. Identity runtime gate coverage remains BE-004; no auth endpoints/provisioned secrets were added.
+
 - **Resolved by accepted baseline:** five states, OutcomeUnknown, optimistic Version/ETag plus commit ordering, no match table, recovery limits and AngleSharp family. Runtime tests remain required.
 - **BLOCKING provider-specific contract/live polling:** NASA/Binance are candidates; choice, coverage/currency/window fit and rights/distribution/jurisdiction remain gates. Repeated per-slot matching and suppressed RSS baseline semantics themselves are accepted, not legal clearance.
 - **BLOCKING before nonlocal operation:** approve host/key-at-rest protection/TLS/proxy/egress controls and credential lifecycle; current-user DPAPI/local sandbox acceptance does not approve other deployments.

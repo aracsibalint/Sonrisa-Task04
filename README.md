@@ -21,6 +21,18 @@ dotnet test --solution Alerts.slnx --configuration Release --no-build --no-resto
 dotnet run --project src/Alerts.Api --configuration Release --no-build
 ```
 
-The scaffold serves `/health/live` on its configured loopback URL. No authentication/business endpoints or integrations are implemented in BE-001. See [scaffold evidence](docs/process/build/BE-001.md) and [independent review](docs/validation/BE-001-review.md).
+The host serves `/health/live` and `/health/ready` on its configured loopback URL. Without configured, migrated persistence, readiness is 503; no database is automatically created and no workers or business/authentication endpoints start. BE-003 persistence is implemented **awaiting independent review**. See [persistence evidence](docs/process/build/BE-003.md), [local storage runbook](docs/data/sqlite-local-operations.md), [scaffold evidence](docs/process/build/BE-001.md) and [scaffold review](docs/validation/BE-001-review.md).
+
+For an explicitly selected **new synthetic sandbox** DB in an existing local NTFS directory, review `docs/data/BE-003-initial.sql`, stop all app instances, then:
+
+```powershell
+dotnet tool restore
+# Replace with your own absolute local NTFS path; no shared/real database operations are authorized.
+dotnet run --project src/Alerts.Api -c Release --no-build -- --migrate 'C:\sandbox\alerts.db'
+$env:Persistence__DatabasePath = 'C:\sandbox\alerts.db'
+dotnet run --project src/Alerts.Api -c Release --no-build
+```
+
+The migration command exits after migration/checkpoint, holds exclusive sidecar ownership throughout, and seeds only the User/Admin role definitions (no accounts/passwords). Tooling is model/SQL-only; `dotnet ef database update/drop` is deliberately refused. Do not run raw SQL against an application DB or delete lock/WAL files. Account provisioning and Identity runtime write integration belong to BE-004.
 
 Process evidence and prompt provenance are in [docs/process](docs/process/planning-approach.md). Milestone pushes go directly to `main` as authorized. Documentation/provider probes do not establish working live integrations or completed later chunks.

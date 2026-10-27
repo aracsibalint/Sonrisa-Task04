@@ -26,8 +26,17 @@ public sealed class ArchitectureTests
                 .Select(node => Path.GetFileNameWithoutExtension((string)node.Attribute("Include")!))
                 .Order().ToArray();
             Assert.Equal(expected[name].Order(), references);
-            Assert.Empty(document.Descendants("PackageReference"));
-            Assert.Empty(document.Descendants("FrameworkReference"));
+            if (name == "Alerts.Infrastructure")
+            {
+                Assert.Equal(new[] { "Microsoft.AspNetCore.Identity.EntityFrameworkCore", "Microsoft.EntityFrameworkCore.Design", "Microsoft.EntityFrameworkCore.Sqlite" },
+                    document.Descendants("PackageReference").Select(n => (string)n.Attribute("Include")!).Order());
+                Assert.Equal("Microsoft.AspNetCore.App", (string?)Assert.Single(document.Descendants("FrameworkReference")).Attribute("Include"));
+            }
+            else
+            {
+                Assert.Empty(document.Descendants("PackageReference"));
+                Assert.Empty(document.Descendants("FrameworkReference"));
+            }
             Assert.Equal(name == "Alerts.Api" ? "Microsoft.NET.Sdk.Web" : "Microsoft.NET.Sdk",
                 (string?)document.Root!.Attribute("Sdk"));
         }

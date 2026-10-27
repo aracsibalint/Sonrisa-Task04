@@ -1,0 +1,58 @@
+# SQLite local sandbox operations (BE-003)
+
+Status: implemented; independent review pending. Canonical requirements remain [schema](data-model-and-evolution.md), [security](../architecture/security.md) and active ADR-001/002/003/004/006. [Evidence](../process/build/BE-003.md) distinguishes actual disposable tests from future operations.
+
+## Supported envelope and ownership
+
+- Windows, fixed local NTFS volume only. Supply an absolute ordinary drive path (`C:\...\alerts.db`) with an existing parent directory. UNC/network, device/extended paths, ADS, dot/trailing-dot/space aliases, reparse traversal and hardlinks are unsupported/refused. Final opened-handle path must equal the supplied full path (ordinal-ignore-case); native `GetFinalPathNameByHandle` and `GetFileInformationByHandle` verify final path and single link. Unsupported/unverifiable identity fails closed.
+- `WindowsDatabaseOwner` first acquires `<database>.writer.lock` with `FileShare.None`, then keeps a read/write non-delete-sharing database handle for its lifetime. Existing WAL/SHM/journal siblings are checked too. The app, explicit migration command and future provisioning writers must retain the same owner lifetime. Never delete a stale-looking sidecar; after crash the OS releases the handle and the next owner opens the existing file.
+- This is cooperative ownership against accidental aliases/second writers, not protection from a hostile local operator, concurrent directory/ACL/hardlink tampering, administrator/native raw-volume access or arbitrary external SQLite tools. Such operation is unsupported, not silently treated as safe. No network filesystem or PostgreSQL runtime support is claimed.
+
+## Generate and inspect (offline/model-only)
+
+```powershell
+dotnet tool restore
+dotnet ef migrations script 0 InitialPersistence --project src/Alerts.Infrastructure --startup-project src/Alerts.Infrastructure --configuration Release --no-build --output docs/data/BE-003-initial.sql
+dotnet ef migrations has-pending-model-changes --project src/Alerts.Infrastructure --startup-project src/Alerts.Infrastructure --configuration Release --no-build
+```
+
+`AlertsDesignTimeFactory` installs a connection interceptor refusing **all database opens**, even a `--connection` override. Supported tools generate/compare models and scripts only, without an application-file writer. `ef database update/drop`, database-connected migration removal/listing and direct script execution are not the supported lifecycle. Future migrations still require SQL inspection; table rebuild/drop/down migration or real/shared data changes require separate approval. No `EnsureCreated` is used.
+
+## Apply explicitly, with app stopped
+
+Only new disposable/synthetic sandbox initialization and safe reapplication were executed for BE-003. Read the generated SQL before using the command. Do not infer approval for existing real/shared data from this example.
+
+```powershell
+dotnet restore Alerts.slnx --locked-mode
+dotnet build Alerts.slnx -c Release --no-restore
+# Existing parent directory, a deliberate synthetic database path:
+dotnet run --project src/Alerts.Api -c Release --no-build -- --migrate 'C:\sandbox\alerts.db'
+```
+
+The command checks normal disk headroom before creating the empty file, acquires lifetime ownership, admits once through the gate, refuses unknown history/nonempty unversioned databases, enables WAL, applies known forward migrations and checkpoints. Only stable User/Admin role rows are seeded, with no accounts/passwords/destinations. Migration history and provider `__EFMigrationsLock` are infrastructure tables, not business records. The provider lock is not a substitute for process ownership; do not delete provider-lock rows/files as guessed recovery. A failed operation requires investigation, not a blind retry/destructive repair.
+
+```powershell
+$env:Persistence__DatabasePath = 'C:\sandbox\alerts.db'
+dotnet run --project src/Alerts.Api -c Release --no-build
+```
+
+Startup with a configured path requires the existing file and exact known migration history; it streams decimal/snapshot representations for validation and never migrates/creates the DB. Missing/incompatible configured storage fails startup. Without a configured path, liveness remains available but readiness is 503. Readiness checks owner validity and emergency disk floor/fault latch, not future auth/provisioning/worker readiness. No business/auth endpoints or workers are enabled by BE-003.
+
+## Runtime writer foundation
+
+- `IMutationGate` is singleton; max32 queued callers, deadline2s, nonreentrant execution-context guard, cancellation-safe release. Outer Application use cases acquire **once** and pass `MutationAdmission`; it expires on callback exit. Participants never reacquire/capture it. Create a DI scope/context/unit of work per operation; discard it after success or failure.
+- `PersistenceUnitOfWork` requires that capability plus live process ownership, checks disk, binds the scoped context, starts a short transaction, saves and commits, then explicitly checkpoints before returning success. All connection strings enable FK enforcement, busy timeout1s and disable pooling. Network/SMTP/password hashing and other external work stay outside admission/transaction.
+- `AlertsDbContext.SaveChangesAsync` refuses unadmitted writes; synchronous saves and physical deletion are unsupported. It guards immutable event/seen evidence, intent matching/destination/payload snapshots, destination versions, rule category and terminal attempt/intent evidence. New intents validate filter schema and referenced category/rule/destination snapshot agreement. Rule/source/intent `Version` is an application-managed concurrency token; business use cases must increment and enforce their accepted preconditions.
+- Normal growth: >=1GiB **after16MiB** allowance; emergency: >=256MiB **after1MiB**. Emergency purpose is not a free-form low-space bypass: only modified intent/attempt completion/recovery fields or essential Identity counter/lockout/stamp fields qualify; creation/claims, unrelated records and password rehash require normal admission. Reads do not acquire the mutation gate.
+- Headroom is measured before admission/save/commit/checkpoint, not reserved by the OS. Unknown space, relevant physical SQLite write faults and failed/busy checkpoint latch the service unavailable until operator investigation/restart. Low measured space rejects work without deleting data. Completion checks must also precede sending in BE-009.
+- Emergency delivery writes must atomically finish one existing InFlight attempt for each modified InFlight intent: preserve AttemptCount/claim ordinal, verify original and persisted token/lease/version evidence, clear the intent claim/lease and increment its Version once. Delivered requires Succeeded; RetryScheduled requires TransientFailure/OutcomeUnknown before attempt5; Failed requires PermanentFailure, or TransientFailure/OutcomeUnknown at attempt5. New claims, Pending/RetryScheduled transitions, in-place claim rotation, unpaired or fabricated tracked claims and new attempt rows are refused. Recovery lease-expiry/local-operation coordination still belongs to BE-009.
+- A precommit exception/cancellation rolls back. A checkpoint error **after commit** is an uncertain acknowledgement: caller receives no success, stored data can already exist, readiness/writes latch off. Never pretend that commit rolled back; later acceptance retries must retain their stable idempotency key. Tests exercise both cases without filling a real disk.
+- Future Identity stores must share the admitted scoped context; BE-004 must test actual UserManager/SignInManager writes and hash/stamp races before claiming all Identity paths are integrated. Rule active100/20 limits, acceptance fan-out200/outstanding20,000/retained250,000 caps and attempt/token state-machine cross-row consistency belong to their later Application use cases. No public repository CRUD or auth behavior is introduced here. Raw SQL/external writers are not alternative supported mutation paths.
+
+## Backup, restore and evolution (instructions, not executed evidence)
+
+No backup/restore/provisioning CLI is implemented in BE-003. Before touching an existing real DB, obtain separate authorization, stop all writers and use a reviewed maintenance process that holds the same owner throughout a consistent SQLite backup/checkpoint operation. Do **not** copy only the main DB from a running or crash-left WAL database; do not delete WAL/SHM/journal. Use the SQLite backup API or a stopped, successfully checkpointed and closed file set with integrity/FK checks, recorded migration history/counts and a rehearsal on another disposable location. Keep backups outside the DB directory and protect PII.
+
+Restoring/replacing real files, applying Down migrations or accepting data loss requires separate Level3 approval. Stop all writers and retain exclusive maintenance ownership while restoring the reviewed consistent set; verify schema, rows/FKs/canonical representations and pending claims before resuming. Preserve Data Protection keys/DPAPI identity/configuration/secrets separately: copying SQLite is not key/credential portability and does not guarantee bearer continuity. No restore drill, hardware power-loss durability, disk-exhaustion test or production backup guarantee is claimed.
+
+PostgreSQL remains the dedicated, separately approved provider/migration/export-import path in the canonical schema. No Npgsql provider, PostgreSQL install, connection-string-only migration or real-data cutover was performed.

@@ -29,8 +29,8 @@ Every dependency below is a prerequisite for claiming completion; approval gates
 | Task | Scope | Explicit dependencies | Status |
 |---|---|---|---|
 | [BE-001](tasks/BE-001.md) | Solution/tooling scaffold | User technical/dependency approval checkpoint | Verified; committed/pushed 25c9bb4 |
-| [BE-002](tasks/BE-002.md) | Domain validation and matching | BE-001 | Verified after exact-boundary correction |
-| [BE-003](tasks/BE-003.md) | Relational model/migrations | BE-001, BE-002 | Not started (approval/dependency gated) |
+| [BE-002](tasks/BE-002.md) | Domain validation and matching | BE-001 | Verified; committed/pushed 4702b21 |
+| [BE-003](tasks/BE-003.md) | Relational model/migrations | BE-001, BE-002 | Verified after emergency-admission correction |
 | [BE-004](tasks/BE-004.md) | Seeded identity/authorization | BE-003 | Not started (approval/dependency gated) |
 | [BE-005](tasks/BE-005.md) | Owner rule APIs/provisioned channels | BE-002, BE-003, BE-004 | Not started (approval/dependency gated) |
 | [BE-006](tasks/BE-006.md) | Atomic event acceptance/manual admin input | BE-002, BE-003, BE-004, BE-005 | Not started (approval/dependency gated) |

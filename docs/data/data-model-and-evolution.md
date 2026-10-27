@@ -1,6 +1,6 @@
 # Data model and evolution
 
-Status: **Approved recovery baseline; runtime unverified.** No schema or migration has been executed by this documentation task.
+Status: **Approved recovery baseline; BE-003 persistence implemented awaiting independent review.** The initial SQLite migration has been applied/reapplied only to disposable Windows-local synthetic databases. See [BE-003 evidence](../process/build/BE-003.md), [generated SQL](BE-003-initial.sql) and [supported lifecycle/runbook](sqlite-local-operations.md). Later use-case, Identity/auth and delivery behavior is not yet verified.
 
 ## Authority, review gates and representation
 
@@ -142,6 +142,8 @@ Under admission enforce projected outstanding Pending+InFlight+RetryScheduled <=
 - **Database file is not deployment identity:** Data Protection key ring, key-encryption certificates/OS binding, application discriminator, webhook/SMTP/Slack secrets and configuration are separate. A copied SQLite database cannot by itself preserve bearer tokens or decrypt OS-bound keys on another host. Plan separate protected key/secret continuity or explicit token invalidation and secret reprovisioning. Never export secrets into migration logs.
 
 ## Verification and unresolved gates
+
+BE-003 now supplies real SQLite evidence for schema/migration/reopen, selected CHECK/FK/uniques, canonical decimal and Identity epoch conversion, numeric due-query/index translation, rollback, immutable evidence/version conflicts, bounded nonreentrant gate, Windows sidecar second-process/crash/hardlink/junction refusal, synthetic headroom checks and real WAL checkpoint-busy failure. This is not exhaustive acceptance or independent review. Exact coverage/results/limitations are in the build record. SQLite text checks deliberately do not validate decimal numeric content; EF converters and startup streaming validation do. Application quota/fan-out/attempt-token and cross-row state-machine enforcement belongs to the respective later use cases; the schema alone does not establish it.
 
 Required future tests: actual SQLite CHECK/FK/uniques, canonical decimal round-trip/culture/overflow, UTC indexed due queries, max key round-trip, two-actor manual key isolation, stale rule versions, zero-match event, every-stage rollback, rule/event races, RSS partial-poll replay/baseline, slot dedup, cap rollback, claim-token fencing, restart recovery and immutable recipients. No runtime test is claimed here.
 

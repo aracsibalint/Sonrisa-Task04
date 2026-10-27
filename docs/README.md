@@ -17,6 +17,7 @@
 - No estimates/dates appear in roadmap tasks. Technical intervals/timeouts are runtime behavior, not scheduling estimates.
 
 ## Working evidence
+- [BE-003 persistence build evidence](process/build/BE-003.md) - implemented, awaiting independent review; [SQLite local operations](data/sqlite-local-operations.md).
 - [Planning approach](process/planning-approach.md)
 - [Working log and corrections](process/working-log.md)
 - [Prompt provenance and history](process/prompts/README.md)
@@ -42,4 +43,4 @@ All build artifacts needed by a future session belong in this repository; the kn
 | [BE-011](roadmap/tasks/BE-011.md) | Adversarial end-to-end verification |
 | [BE-012](roadmap/tasks/BE-012.md) | Reproducible demo, CI and submission |
 
-See the roadmap for dependency edges and FUT-001–FUT-005 separately approved future work. All implementation chunks are Not started.
+See the roadmap for dependency edges and FUT-001–FUT-005 separately approved future work. Consult per-task statuses and evidence; documentation existence is not task completion.
