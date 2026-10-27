@@ -1,3 +1,7 @@
+> [!NOTE]
+> Task is not finished. Current state is documented.
+
+
 # Sonrisa-Task04 — Alerts backend MVP
 
 Backend MVP for a software-development assignment. **Implementation in progress:** the layered API scaffold is implemented and independently verified; business features are not yet complete.
