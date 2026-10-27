@@ -10,6 +10,8 @@
 7. Acceptance strategy saved by test engineer. Lead checked official .NET10 Identity and SQLite-provider documentation, rejecting automatic Identity route mapping and connection-string-only migration claims.
 8. Resumed architect hit usage limit. Fresh architect returned a recovery draft; lead persisted architecture, processing flows and six proposed ADRs. Separate reviewers assess the final artifacts; the author's self-assessment is not independent acceptance.
 9. Lead transcribed visible initial user and discovery prompts, added approval/submission registers and supplementary vault decisions. Full conversation/tool export remains a submission check, not a claimed completed export.
+10. User requested sequential backend implementation and direct-main commits/pushes: documentation snapshot committed/pushed as `7cd3fbf`. Baseline intentionally included disclosed draft conflicts; not represented as fully reconciled design.
+11. User approved active recovery baseline, delegated compatible dependency pin selection after license/advisory checks and Windows local sandbox, requesting cursory change-focused reviews. BE-001 delegated to backend developer; separate designer reconciles contracts/security findings before affected chunks. No mandatory review/test gates waived.
 
 ## Corrections and rejected shortcuts
 - **Correction:** earlier lead messages asserted the session was read-only without verified basis. Documentation writes are available and authorized. No application implementation is authorized.

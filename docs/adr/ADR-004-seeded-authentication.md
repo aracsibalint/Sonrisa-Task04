@@ -1,5 +1,5 @@
 # ADR-004: Provisioned Identity with login-only opaque bearer
-Status: Proposed
+Status: Accepted for Windows local sandbox — see approval register. No real-secret provisioning or nonlocal deployment authorized.
 
 ## Context
 Real auth, seeded roles and API clients; registration/recovery/management excluded.

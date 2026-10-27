@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../Alerts.Application/Alerts.Application.csproj" />
+    <ProjectReference Include="../Alerts.Infrastructure/Alerts.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

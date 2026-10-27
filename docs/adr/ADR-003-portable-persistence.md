@@ -1,5 +1,5 @@
 # ADR-003: SQLite with explicit PostgreSQL evolution
-Status: Proposed (SQLite/EFCore/.NET10 stack itself user-approved)
+Status: Accepted for Windows local sandbox — see approval register. PostgreSQL implementation remains deferred.
 
 ## Context
 Portable initial database, exact market arithmetic, later PostgreSQL support without assuming provider equivalence.

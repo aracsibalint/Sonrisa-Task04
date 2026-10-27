@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "alerts.application": {
+        "type": "Project",
+        "dependencies": {
+          "Alerts.Domain": "[1.0.0, )"
+        }
+      },
+      "alerts.domain": {
+        "type": "Project"
+      }
+    }
+  }
+}

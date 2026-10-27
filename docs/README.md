@@ -1,6 +1,6 @@
 # Alerts backend — build package
 
-**Status: proposed design; not authorized for implementation until relevant approvals are recorded.** Product scope is agreed. Runtime behavior is unimplemented and untested.
+**Status: active recovery baseline approved for Windows local implementation; build in progress.** Provider selection/live rights and nonlocal operation remain gated. Accepted design does not imply implemented or tested runtime behavior; see the approval register and per-chunk evidence.
 
 ## Reading order
 1. [Approved scope](process/approved-scope.md) and [requirements](requirements/alerts-mvp.md).

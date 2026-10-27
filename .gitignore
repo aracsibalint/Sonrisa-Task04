@@ -55,3 +55,17 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Local sandbox state and credentials (lock files remain tracked)
+.vs/
+.idea/
+*.user
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.pfx
+*.p12
+appsettings.Local.json
+**/keys/

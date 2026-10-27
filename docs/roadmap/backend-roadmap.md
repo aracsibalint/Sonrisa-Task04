@@ -1,6 +1,6 @@
 # Backend roadmap
 
-Status: **Proposed — implementation not approved.** All chunks are **Not started (approval/dependency gated)**. This roadmap defines order and evidence, not a schedule. No implementation, runtime verification or milestone commit is claimed.
+Status: **Baseline approved for Windows local implementation.** BE-001 implementation has been delegated; per-task evidence governs completion. Other chunks remain Not started, dependency/provider gated as applicable. This roadmap defines order and evidence, not a schedule. Documentation snapshot commit/push: `7cd3fbf`; no implementation milestone has yet been verified.
 
 ## Authority and canonical contracts
 

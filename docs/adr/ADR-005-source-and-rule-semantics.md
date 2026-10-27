@@ -1,5 +1,5 @@
 # ADR-005: Explicit sources and first-ingestion matching
-Status: Proposed
+Status: Accepted matching/baseline semantics — provider selection/rights remain gated in approval register.
 
 ## Context
 Three categories are approved; exact sources/meaning of thresholds still need concrete acceptance.

@@ -1,5 +1,5 @@
 # ADR-001: Single-process layered application
-Status: Proposed
+Status: Accepted for Windows local sandbox — see approval register. Implementation remains unverified.
 
 ## Context
 Small backend-only sandbox MVP, no existing implementation or scale requirement.

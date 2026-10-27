@@ -1,6 +1,6 @@
 # Architecture decision register
 
-All six records are **Proposed**. The user approved product scope and stack, not derived architectural choices. Record explicit acceptance/rejection before affected implementation; review verdicts do not substitute for it.
+The user has **accepted the active recovery baseline for the Windows local sandbox**, including derived architecture and matching semantics. See [approval register](../process/approval-register.md). Provider selection/rights and nonlocal operation remain separately gated. Implementation tests/reviews remain mandatory; accepted design is not verified runtime behavior.
 
 | ID | Proposal | Gate |
 |---|---|---|
@@ -11,7 +11,7 @@ All six records are **Proposed**. The user approved product scope and stack, not
 | [ADR-005](ADR-005-source-and-rule-semantics.md) | Explicit providers, filters and first-ingestion semantics | BE-002, BE-007, BE-008 |
 | [ADR-006](ADR-006-durable-delivery.md) | Durable bounded dispatch, honest uncertainty | BE-009 |
 
-Dependencies listed in [architecture](../architecture/overview.md) also require approval and version pinning. Do not infer approval from this register's existence.
+Exact maintained compatible pins for the named dependency families are delegated after license/advisory checks and recorded at introduction. New dependency families/material changes require approval. Acceptance comes from the explicit user response in the register, not this document's existence.
 
 ## Superseded intermediate drafts
 The interrupted initial architect wrote partial artifacts before hitting its limit; these were discovered during review, correcting the earlier unconfirmed assumption that none were saved. They are retained for process evidence with prominent superseded banners, not active ADRs:

@@ -1,5 +1,5 @@
 # ADR-002: Atomic ingestion, matching and notification intents
-Status: Proposed
+Status: Accepted for Windows local sandbox — see approval register. Implementation remains unverified.
 
 ## Context
 New-event semantics and rule-edit races must be deterministic; accepted events must not lose queued notifications on restart.

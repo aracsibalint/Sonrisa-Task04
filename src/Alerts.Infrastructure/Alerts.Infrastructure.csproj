@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Alerts.Application/Alerts.Application.csproj" />
+    <ProjectReference Include="../Alerts.Domain/Alerts.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,5 +1,5 @@
 # ADR-006: Durable bounded delivery without exactly-once claims
-Status: Proposed
+Status: Accepted for local sandbox delivery — see approval register. Implementation remains unverified.
 
 ## Context
 Sandbox notifications must survive restart and expose failures without a broker.
